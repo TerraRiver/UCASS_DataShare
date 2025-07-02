@@ -1,130 +1,159 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { promisify } from 'util';
+import fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import axios from 'axios';
 import { query } from '../config/database';
-import { authenticateToken, requireAdmin, optionalAuth, AuthRequest } from '../middleware/auth';
+import { authenticateToken, requireAdmin, optionalAuth, AuthRequest, generateAnonymousId } from '../middleware/auth';
 import { createError } from '../middleware/errorHandler';
 
 const router = express.Router();
-const readFileAsync = promisify(fs.readFile);
-const unlinkAsync = promisify(fs.unlink);
 
-// 文件上传配置
+// 配置文件上传
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  destination: async (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error, uploadDir);
     }
-    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
+    const ext = path.extname(file.originalname);
+    const basename = path.basename(file.originalname, ext);
+    cb(null, `${basename}-${uniqueSuffix}${ext}`);
   }
 });
 
 const upload = multer({
-  storage: storage,
+  storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.csv', '.xlsx', '.xls', '.json', '.txt'];
-    const fileExt = path.extname(file.originalname).toLowerCase();
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/json',
+      'text/plain'
+    ];
     
-    if (allowedTypes.includes(fileExt)) {
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('不支持的文件类型'));
+      cb(new Error('不支持的文件类型'), false);
     }
   }
 });
 
-// 数据集验证schema
-const datasetSchema = Joi.object({
-  name: Joi.string().min(1).max(255).required().messages({
-    'string.min': '数据集名称不能为空',
-    'string.max': '数据集名称最多255个字符',
-    'any.required': '数据集名称是必需的'
+// 数据集上传验证schema
+const datasetUploadSchema = Joi.object({
+  name: Joi.string().min(3).max(255).required().messages({
+    'any.required': '数据集名称不能为空',
+    'string.min': '数据集名称至少3个字符',
+    'string.max': '数据集名称不能超过255个字符'
   }),
-  description: Joi.string().allow('').max(5000).messages({
-    'string.max': '描述最多5000个字符'
+  source: Joi.string().uri().required().messages({
+    'any.required': '数据来源不能为空',
+    'string.uri': '数据来源必须是有效的网址'
   }),
-  tags: Joi.array().items(Joi.string().max(50)).max(10).messages({
-    'array.max': '最多添加10个标签',
-    'string.max': '标签最多50个字符'
+  description_markdown: Joi.string().min(10).required().messages({
+    'any.required': '详细介绍不能为空',
+    'string.min': '详细介绍至少10个字符'
   }),
-  previewable: Joi.boolean().default(false),
-  visualizable: Joi.boolean().default(false),
-  analyzable: Joi.boolean().default(false)
+  data_update_time: Joi.date().iso().required().messages({
+    'any.required': '数据更新时间不能为空',
+    'date.format': '数据更新时间格式错误'
+  }),
+  tags: Joi.array().items(Joi.string()).default([])
 });
 
-// 获取所有数据集（支持分页和搜索）
-router.get('/', optionalAuth, async (req: AuthRequest, res, next) => {
+// 审核操作验证schema
+const reviewSchema = Joi.object({
+  action: Joi.string().valid('approve', 'reject', 'require_revision').required(),
+  notes: Joi.string().when('action', {
+    is: Joi.valid('reject', 'require_revision'),
+    then: Joi.required(),
+    otherwise: Joi.optional()
+  })
+});
+
+// 操作日志记录函数
+const logOperation = async (operation: string, details: any = {}, userId?: string) => {
+  try {
+    await query(
+      'INSERT INTO operation_logs (operation, details, user_id, ip_address, user_agent, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)',
+      [operation, JSON.stringify(details), userId || null, details.ip || null, details.userAgent || null]
+    );
+  } catch (error) {
+    console.error('记录操作日志失败:', error);
+  }
+};
+
+// 获取已批准的数据集列表（公开接口）
+router.get('/public', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
-    const search = req.query.search as string || '';
-    const tags = req.query.tags as string || '';
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+    const tag = req.query.tag as string;
     const offset = (page - 1) * limit;
 
-    let whereClause = 'WHERE 1=1';
-    const queryParams: any[] = [];
-    let paramIndex = 1;
+    let whereClause = "WHERE status = 'approved' AND is_public = true";
+    const queryParams: any[] = [limit, offset];
+    let paramIndex = 3;
 
-    // 搜索条件
+    // 搜索功能
     if (search) {
-      whereClause += ` AND (d.name ILIKE $${paramIndex} OR d.description ILIKE $${paramIndex})`;
+      whereClause += ` AND (name ILIKE $${paramIndex} OR description_markdown ILIKE $${paramIndex})`;
       queryParams.push(`%${search}%`);
       paramIndex++;
     }
 
-    // 标签过滤
-    if (tags) {
-      const tagArray = tags.split(',').map(tag => tag.trim());
-      whereClause += ` AND d.tags && $${paramIndex}`;
-      queryParams.push(tagArray);
+    // 标签筛选
+    if (tag) {
+      whereClause += ` AND $${paramIndex} = ANY(tags)`;
+      queryParams.push(tag);
       paramIndex++;
     }
 
-    // 查询数据集
-    const datasetsQuery = `
+    // 获取数据集列表
+    const datasetsResult = await query(`
       SELECT 
-        d.id, d.name, d.description, d.tags, d.file_size, d.file_type,
-        d.previewable, d.visualizable, d.analyzable, d.created_at,
-        u.username as uploader_name
-      FROM datasets d
-      JOIN users u ON d.uploader_id = u.id
+        id, name, source, description_markdown, data_update_time,
+        tags, file_type, file_size, download_count, view_count,
+        created_at, updated_at
+      FROM datasets 
       ${whereClause}
-      ORDER BY d.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    queryParams.push(limit, offset);
-    const result = await query(datasetsQuery, queryParams);
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `, queryParams);
 
     // 获取总数
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM datasets d
-      JOIN users u ON d.uploader_id = u.id
-      ${whereClause}
-    `;
-    const countResult = await query(countQuery, queryParams.slice(0, -2));
+    const countResult = await query(`
+      SELECT COUNT(*) as total 
+      FROM datasets 
+      ${whereClause.replace('LIMIT $1 OFFSET $2', '')}
+    `, queryParams.slice(2));
+
     const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
 
     res.json({
-      datasets: result.rows,
+      datasets: datasetsResult.rows,
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
       }
     });
   } catch (error) {
@@ -132,30 +161,124 @@ router.get('/', optionalAuth, async (req: AuthRequest, res, next) => {
   }
 });
 
-// 获取单个数据集详情
-router.get('/:id', optionalAuth, async (req: AuthRequest, res, next) => {
+// 上传数据集（支持匿名上传）
+router.post('/upload', upload.single('file'), async (req, res, next) => {
   try {
-    const datasetId = req.params.id;
+    if (!req.file) {
+      throw createError('请选择要上传的文件', 400);
+    }
+
+    // 验证表单数据
+    const { error, value } = datasetUploadSchema.validate(req.body);
+    if (error) {
+      // 删除已上传的文件
+      await fs.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({
+        error: '数据验证失败',
+        details: error.details.map(detail => detail.message)
+      });
+    }
+
+    const { name, source, description_markdown, data_update_time, tags } = value;
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || '';
+
+    // 检查数据集名称是否重复
+    const nameCheckResult = await query(
+      'SELECT id FROM datasets WHERE name = $1',
+      [name]
+    );
+
+    if (nameCheckResult.rows.length > 0) {
+      await fs.unlink(req.file.path).catch(() => {});
+      throw createError('数据集名称已存在，请使用其他名称', 400);
+    }
+
+    // 生成匿名用户ID（如果未认证）
+    const anonymousId = generateAnonymousId();
+    const uploaderId = req.user ? req.user.id : null;
+    const uploaderType = req.user ? 'user' : 'anonymous';
+
+    // 插入数据集记录
+    const insertResult = await query(`
+      INSERT INTO datasets (
+        name, source, description_markdown, data_update_time,
+        file_path, file_type, file_size, tags,
+        uploader_id, uploader_type, anonymous_id, status,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id, name, status, created_at
+    `, [
+      name,
+      source,
+      description_markdown,
+      data_update_time,
+      req.file.path,
+      req.file.mimetype,
+      req.file.size,
+      tags,
+      uploaderId,
+      uploaderType,
+      anonymousId
+    ]);
+
+    const dataset = insertResult.rows[0];
+
+    // 记录操作日志
+    await logOperation('dataset_upload', {
+      datasetId: dataset.id,
+      datasetName: name,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      uploaderType,
+      anonymousId: anonymousId,
+      ip,
+      userAgent
+    }, uploaderId);
+
+    res.status(201).json({
+      message: '数据集上传成功，等待管理员审核',
+      dataset: {
+        id: dataset.id,
+        name: dataset.name,
+        status: dataset.status,
+        uploadedAt: dataset.created_at
+      }
+    });
+  } catch (error) {
+    // 清理上传的文件
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
+    next(error);
+  }
+});
+
+// 获取数据集详情（公开接口）
+router.get('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
 
     const result = await query(`
       SELECT 
-        d.*, 
-        u.username as uploader_name,
-        u.email as uploader_email
+        d.*,
+        u.username as uploader_username
       FROM datasets d
-      JOIN users u ON d.uploader_id = u.id
-      WHERE d.id = $1
-    `, [datasetId]);
+      LEFT JOIN users u ON d.uploader_id = u.id
+      WHERE d.id = $1 AND d.status = 'approved' AND d.is_public = true
+    `, [id]);
 
     if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
+      throw createError('数据集不存在或未公开', 404);
     }
 
     const dataset = result.rows[0];
 
-    // 不返回敏感信息
-    delete dataset.file_path;
-    delete dataset.uploader_email;
+    // 增加查看次数
+    await query(
+      'UPDATE datasets SET view_count = view_count + 1 WHERE id = $1',
+      [id]
+    );
 
     res.json({ dataset });
   } catch (error) {
@@ -163,299 +286,249 @@ router.get('/:id', optionalAuth, async (req: AuthRequest, res, next) => {
   }
 });
 
-// 上传新数据集（仅管理员）
-router.post('/', authenticateToken, requireAdmin, upload.single('file'), async (req: AuthRequest, res, next) => {
+// 下载数据集（公开接口）
+router.get('/:id/download', async (req, res, next) => {
   try {
-    if (!req.file) {
-      throw createError('请选择要上传的文件', 400);
-    }
+    const { id } = req.params;
 
-    // 验证元数据
-    const { error, value } = datasetSchema.validate(req.body);
-    if (error) {
-      // 删除已上传的文件
-      await unlinkAsync(req.file.path);
-      return res.status(400).json({
-        error: '数据验证失败',
-        details: error.details.map(detail => detail.message)
-      });
-    }
-
-    const { name, description, tags, previewable, visualizable, analyzable } = value;
-
-    // 保存到数据库
     const result = await query(`
-      INSERT INTO datasets (
-        name, description, tags, uploader_id, file_path, file_size, file_type,
-        previewable, visualizable, analyzable
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *
-    `, [
-      name,
-      description || '',
-      tags || [],
-      req.user!.id,
-      req.file.path,
-      req.file.size,
-      path.extname(req.file.originalname).toLowerCase().substring(1),
-      previewable,
-      visualizable,
-      analyzable
-    ]);
-
-    const dataset = result.rows[0];
-    
-    // 不返回文件路径
-    delete dataset.file_path;
-
-    res.status(201).json({
-      message: '数据集上传成功',
-      dataset
-    });
-  } catch (error) {
-    // 如果出错，清理已上传的文件
-    if (req.file && fs.existsSync(req.file.path)) {
-      await unlinkAsync(req.file.path).catch(console.error);
-    }
-    next(error);
-  }
-});
-
-// 更新数据集元数据（仅管理员）
-router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res, next) => {
-  try {
-    const datasetId = req.params.id;
-
-    // 验证数据集是否存在
-    const existingDataset = await query('SELECT id FROM datasets WHERE id = $1', [datasetId]);
-    if (existingDataset.rows.length === 0) {
-      throw createError('数据集不存在', 404);
-    }
-
-    // 验证输入
-    const { error, value } = datasetSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        error: '数据验证失败',
-        details: error.details.map(detail => detail.message)
-      });
-    }
-
-    const { name, description, tags, previewable, visualizable, analyzable } = value;
-
-    // 更新数据集
-    const result = await query(`
-      UPDATE datasets 
-      SET name = $1, description = $2, tags = $3, previewable = $4, 
-          visualizable = $5, analyzable = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7
-      RETURNING *
-    `, [name, description || '', tags || [], previewable, visualizable, analyzable, datasetId]);
-
-    const dataset = result.rows[0];
-    delete dataset.file_path;
-
-    res.json({
-      message: '数据集更新成功',
-      dataset
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 删除数据集（仅管理员）
-router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res, next) => {
-  try {
-    const datasetId = req.params.id;
-
-    // 获取数据集信息以删除文件
-    const result = await query('SELECT file_path FROM datasets WHERE id = $1', [datasetId]);
-    
-    if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
-    }
-
-    const filePath = result.rows[0].file_path;
-
-    // 从数据库删除
-    await query('DELETE FROM datasets WHERE id = $1', [datasetId]);
-
-    // 删除文件
-    if (fs.existsSync(filePath)) {
-      await unlinkAsync(filePath);
-    }
-
-    res.json({ message: '数据集删除成功' });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 预览数据集
-router.get('/:id/preview', optionalAuth, async (req: AuthRequest, res, next) => {
-  try {
-    const datasetId = req.params.id;
-    const rows = Math.min(parseInt(req.query.rows as string) || 100, 500);
-
-    // 获取数据集信息
-    const result = await query(`
-      SELECT file_path, file_type, previewable, name 
+      SELECT name, file_path, file_type 
       FROM datasets 
-      WHERE id = $1
-    `, [datasetId]);
+      WHERE id = $1 AND status = 'approved' AND is_public = true
+    `, [id]);
 
     if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
+      throw createError('数据集不存在或未公开', 404);
     }
 
     const dataset = result.rows[0];
 
-    if (!dataset.previewable) {
-      throw createError('该数据集不支持预览', 400);
-    }
-
-    // 调用Python服务进行数据预览
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-    
+    // 检查文件是否存在
     try {
-      const response = await axios.post(`${pythonServiceUrl}/preview`, {
-        file_path: dataset.file_path,
-        file_type: dataset.file_type,
-        rows: rows
-      });
-
-      res.json({
-        preview: response.data,
-        metadata: {
-          name: dataset.name,
-          type: dataset.file_type,
-          previewRows: rows
-        }
-      });
-    } catch (pythonError) {
-      console.error('Python服务调用失败:', pythonError);
-      throw createError('数据预览服务暂时不可用', 503);
-    }
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 下载数据集
-router.get('/:id/download', authenticateToken, async (req: AuthRequest, res, next) => {
-  try {
-    const datasetId = req.params.id;
-
-    // 获取数据集信息
-    const result = await query(`
-      SELECT file_path, name, file_type 
-      FROM datasets 
-      WHERE id = $1
-    `, [datasetId]);
-
-    if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
-    }
-
-    const dataset = result.rows[0];
-    const filePath = dataset.file_path;
-
-    if (!fs.existsSync(filePath)) {
+      await fs.access(dataset.file_path);
+    } catch {
       throw createError('文件不存在', 404);
     }
 
-    // 设置下载头
-    const fileName = `${dataset.name}.${dataset.file_type}`;
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('Content-Type', 'application/octet-stream');
+    // 增加下载次数
+    await query(
+      'UPDATE datasets SET download_count = download_count + 1 WHERE id = $1',
+      [id]
+    );
+
+    // 记录下载操作
+    await logOperation('dataset_download', {
+      datasetId: id,
+      datasetName: dataset.name,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    // 设置下载响应头
+    res.setHeader('Content-Disposition', `attachment; filename="${dataset.name}${path.extname(dataset.file_path)}"`);
+    res.setHeader('Content-Type', dataset.file_type);
 
     // 发送文件
-    res.sendFile(path.resolve(filePath));
+    res.sendFile(path.resolve(dataset.file_path));
   } catch (error) {
     next(error);
   }
 });
 
-// 数据可视化
-router.post('/:id/visualize', authenticateToken, async (req: AuthRequest, res, next) => {
+// === 管理员接口 ===
+
+// 获取待审核数据集列表（管理员专用）
+router.get('/admin/pending', requireAdmin, async (req, res, next) => {
   try {
-    const datasetId = req.params.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
 
-    // 获取数据集信息
     const result = await query(`
-      SELECT file_path, file_type, visualizable, name 
-      FROM datasets 
-      WHERE id = $1
-    `, [datasetId]);
+      SELECT 
+        d.*,
+        u.username as uploader_username
+      FROM datasets d
+      LEFT JOIN users u ON d.uploader_id = u.id
+      WHERE d.status = 'pending'
+      ORDER BY d.created_at ASC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
-    if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
-    }
+    const countResult = await query(
+      "SELECT COUNT(*) as total FROM datasets WHERE status = 'pending'"
+    );
 
-    const dataset = result.rows[0];
+    const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
 
-    if (!dataset.visualizable) {
-      throw createError('该数据集不支持可视化', 400);
-    }
-
-    // 调用Python服务进行数据可视化
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-
-    try {
-      const response = await axios.post(`${pythonServiceUrl}/visualize`, {
-        file_path: dataset.file_path,
-        file_type: dataset.file_type,
-        ...req.body // 传递可视化参数
-      });
-
-      res.json(response.data);
-    } catch (pythonError) {
-      console.error('Python可视化服务调用失败:', pythonError);
-      throw createError('可视化服务暂时不可用', 503);
-    }
+    res.json({
+      datasets: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
   } catch (error) {
     next(error);
   }
 });
 
-// 数据分析
-router.post('/:id/analyze', authenticateToken, async (req: AuthRequest, res, next) => {
+// 审核数据集（管理员专用）
+router.put('/admin/:id/review', requireAdmin, async (req: AuthRequest, res, next) => {
   try {
-    const datasetId = req.params.id;
-
-    // 获取数据集信息
-    const result = await query(`
-      SELECT file_path, file_type, analyzable, name 
-      FROM datasets 
-      WHERE id = $1
-    `, [datasetId]);
-
-    if (result.rows.length === 0) {
-      throw createError('数据集不存在', 404);
-    }
-
-    const dataset = result.rows[0];
-
-    if (!dataset.analyzable) {
-      throw createError('该数据集不支持分析', 400);
-    }
-
-    // 调用Python服务进行数据分析
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-
-    try {
-      const response = await axios.post(`${pythonServiceUrl}/analyze`, {
-        file_path: dataset.file_path,
-        file_type: dataset.file_type,
-        ...req.body // 传递分析参数
+    const { id } = req.params;
+    const { error, value } = reviewSchema.validate(req.body);
+    
+    if (error) {
+      return res.status(400).json({
+        error: '数据验证失败',
+        details: error.details.map(detail => detail.message)
       });
-
-      res.json(response.data);
-    } catch (pythonError) {
-      console.error('Python分析服务调用失败:', pythonError);
-      throw createError('分析服务暂时不可用', 503);
     }
+
+    const { action, notes } = value;
+
+    // 确定新状态
+    let newStatus: string;
+    switch (action) {
+      case 'approve':
+        newStatus = 'approved';
+        break;
+      case 'reject':
+        newStatus = 'rejected';
+        break;
+      case 'require_revision':
+        newStatus = 'revision_required';
+        break;
+      default:
+        throw createError('无效的审核操作', 400);
+    }
+
+    // 更新数据集状态
+    const updateResult = await query(`
+      UPDATE datasets 
+      SET 
+        status = $1,
+        review_notes = $2,
+        reviewed_by = $3,
+        reviewed_at = CURRENT_TIMESTAMP,
+        revision_count = CASE WHEN $1 = 'revision_required' THEN revision_count + 1 ELSE revision_count END
+      WHERE id = $4 AND status = 'pending'
+      RETURNING name, uploader_id, anonymous_id
+    `, [newStatus, notes, req.user!.id, id]);
+
+    if (updateResult.rows.length === 0) {
+      throw createError('数据集不存在或状态不正确', 404);
+    }
+
+    const dataset = updateResult.rows[0];
+
+    // 记录审核操作
+    await logOperation('dataset_review', {
+      datasetId: id,
+      datasetName: dataset.name,
+      action,
+      newStatus,
+      notes,
+      reviewedBy: req.user!.username,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    }, req.user!.id);
+
+    res.json({
+      message: `数据集审核完成：${action === 'approve' ? '已批准' : action === 'reject' ? '已拒绝' : '需要修改'}`,
+      datasetId: id,
+      status: newStatus
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 获取所有数据集管理列表（管理员专用）
+router.get('/admin/all', requireAdmin, async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as string;
+    const offset = (page - 1) * limit;
+
+    let whereClause = '';
+    const queryParams: any[] = [limit, offset];
+    let paramIndex = 3;
+
+    if (status) {
+      whereClause = `WHERE status = $${paramIndex}`;
+      queryParams.push(status);
+    }
+
+    const result = await query(`
+      SELECT 
+        d.*,
+        u.username as uploader_username,
+        r.username as reviewer_username
+      FROM datasets d
+      LEFT JOIN users u ON d.uploader_id = u.id
+      LEFT JOIN users r ON d.reviewed_by = r.id
+      ${whereClause}
+      ORDER BY d.created_at DESC
+      LIMIT $1 OFFSET $2
+    `, queryParams);
+
+    const countQuery = status ? 
+      'SELECT COUNT(*) as total FROM datasets WHERE status = $1' :
+      'SELECT COUNT(*) as total FROM datasets';
+    
+    const countParams = status ? [status] : [];
+    const countResult = await query(countQuery, countParams);
+
+    const total = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      datasets: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 获取审核统计（管理员专用）
+router.get('/admin/stats', requireAdmin, async (req, res, next) => {
+  try {
+    const statsResult = await query(`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM datasets 
+      GROUP BY status
+    `);
+
+    const stats = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      revision_required: 0
+    };
+
+    statsResult.rows.forEach(row => {
+      stats[row.status as keyof typeof stats] = parseInt(row.count);
+    });
+
+    res.json({ stats });
   } catch (error) {
     next(error);
   }
