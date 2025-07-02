@@ -12,13 +12,21 @@ const api = axios.create({
   },
 });
 
-// 请求拦截器 - 添加认证token
+// 请求拦截器 - 添加认证token和匿名用户ID
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // 添加管理员token
+    const token = localStorage.getItem('ucass_admin_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // 添加匿名用户ID
+    const anonymousId = localStorage.getItem('ucass_anonymous_id');
+    if (anonymousId) {
+      config.headers['X-Anonymous-Id'] = anonymousId;
+    }
+    
     return config;
   },
   (error) => {
@@ -33,10 +41,16 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token过期或无效，清除本地存储并跳转到登录页
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // 仅在访问管理员功能时清除认证信息
+      const isAdminRoute = error.config?.url?.includes('/admin') || 
+                          error.config?.url?.includes('/auth/admin');
+      
+      if (isAdminRoute) {
+        localStorage.removeItem('ucass_admin_token');
+        localStorage.removeItem('ucass_admin_user');
+        // 可以选择跳转到管理员登录页面
+        // window.location.href = '/admin/login';
+      }
     }
     return Promise.reject(error.response?.data || error);
   }
@@ -44,19 +58,21 @@ api.interceptors.response.use(
 
 // 认证相关API
 export const authAPI = {
-  // 用户注册
-  register: (data: { username: string; email: string; password: string }) =>
-    api.post('/auth/register', data),
+  // 管理员登录
+  adminLogin: (data: { username: string; password: string }) =>
+    api.post('/auth/admin/login', data),
 
-  // 用户登录
-  login: (data: { username: string; password: string }) =>
-    api.post('/auth/login', data),
+  // 管理员注销
+  adminLogout: () => api.post('/auth/admin/logout'),
+
+  // 检查管理员状态
+  adminStatus: () => api.get('/auth/admin/status'),
+
+  // 获取匿名用户标识
+  getAnonymousId: () => api.post('/auth/anonymous'),
 
   // 获取当前用户信息
   me: () => api.get('/auth/me'),
-
-  // 生成API密钥
-  generateApiKey: () => api.post('/auth/api-key/generate'),
 };
 
 // 数据集相关API

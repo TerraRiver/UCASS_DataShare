@@ -4,9 +4,12 @@
   "description": "UCASS DataShare Platform - 社科大数据分享平台",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"bun --filter web-frontend dev\" \"bun --filter api-backend dev\" \"bun --filter python-service dev\"",
-    "build": "bun --filter web-frontend build && bun --filter api-backend build",
-    "start": "concurrently \"bun --filter web-frontend start\" \"bun --filter api-backend start\" \"bun --filter python-service start\"",
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts\\start-services.ps1",
+    "dev:frontend": "cd apps\\web-frontend && bun dev",
+    "dev:backend": "cd apps\\api-backend && bun dev",
+    "dev:python": "cd apps\\python-service && python main.py",
+    "build": "cd apps\\web-frontend && bun build && cd ..\\..\\apps\\api-backend && bun build",
+    "start": "echo Please run each service separately in different terminals",
     "db:init": "psql -d ucass_datashare -f database/init.sql"
   },
   "devDependencies": {
@@ -17,5 +20,9 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "bun@1.0.0"
-} 
+  "packageManager": "bun@1.0.0",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "pg": "^8.16.3"
+  }
+}

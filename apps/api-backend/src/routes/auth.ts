@@ -1,34 +1,16 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import { query } from '../config/database';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { authenticateToken, AuthRequest, generateAnonymousId } from '../middleware/auth';
 import { createError } from '../middleware/errorHandler';
 
 const router = express.Router();
 
-// 注册验证schema
-const registerSchema = Joi.object({
-  username: Joi.string().alphanum().min(3).max(30).required().messages({
-    'string.alphanum': '用户名只能包含字母和数字',
-    'string.min': '用户名至少3个字符',
-    'string.max': '用户名最多30个字符',
-    'any.required': '用户名不能为空'
-  }),
-  email: Joi.string().email().required().messages({
-    'string.email': '邮箱格式不正确',
-    'any.required': '邮箱不能为空'
-  }),
-  password: Joi.string().min(6).required().messages({
-    'string.min': '密码至少6个字符',
-    'any.required': '密码不能为空'
-  })
-});
-
-// 登录验证schema
-const loginSchema = Joi.object({
+// 管理员登录验证schema
+const adminLoginSchema = Joi.object({
   username: Joi.string().required().messages({
     'any.required': '用户名不能为空'
   }),
@@ -37,72 +19,46 @@ const loginSchema = Joi.object({
   })
 });
 
-// 用户注册
-router.post('/register', async (req, res, next) => {
+// 操作日志记录函数
+const logOperation = async (operation: string, details: any = {}, userId?: string) => {
   try {
-    // 验证输入
-    const { error, value } = registerSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ 
-        error: '输入验证失败', 
-        details: error.details.map(detail => detail.message) 
-      });
-    }
-
-    const { username, email, password } = value;
-
-    // 检查用户名和邮箱是否已存在
-    const existingUser = await query(
-      'SELECT id FROM users WHERE username = $1 OR email = $2',
-      [username, email]
+    await query(
+      'INSERT INTO operation_logs (operation, details, user_id, ip_address, user_agent, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)',
+      [operation, JSON.stringify(details), userId || null, details.ip || null, details.userAgent || null]
     );
+  } catch (error) {
+    console.error('记录操作日志失败:', error);
+  }
+};
 
-    if (existingUser.rows.length > 0) {
-      throw createError('用户名或邮箱已存在', 409);
-    }
+// 获取匿名用户标识
+router.post('/anonymous', async (req, res, next) => {
+  try {
+    const anonymousId = generateAnonymousId();
+    const userAgent = req.get('User-Agent') || '';
+    const ip = req.ip || req.connection.remoteAddress;
 
-    // 加密密码
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    // 记录匿名访问
+    await logOperation('anonymous_access', {
+      anonymousId,
+      ip,
+      userAgent
+    });
 
-    // 创建用户
-    const result = await query(
-      `INSERT INTO users (username, email, password_hash, role, api_key) 
-       VALUES ($1, $2, $3, 'user', $4) 
-       RETURNING id, username, email, role, created_at`,
-      [username, email, passwordHash, uuidv4()]
-    );
-
-    const newUser = result.rows[0];
-
-    // 生成JWT
-    const token = jwt.sign(
-      { userId: newUser.id, username: newUser.username },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
-    res.status(201).json({
-      message: '注册成功',
-      user: {
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        createdAt: newUser.created_at
-      },
-      token
+    res.json({
+      anonymousId,
+      message: '匿名标识生成成功'
     });
   } catch (error) {
     next(error);
   }
 });
 
-// 用户登录
-router.post('/login', async (req, res, next) => {
+// 管理员登录
+router.post('/admin/login', async (req, res, next) => {
   try {
     // 验证输入
-    const { error, value } = loginSchema.validate(req.body);
+    const { error, value } = adminLoginSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ 
         error: '输入验证失败', 
@@ -111,15 +67,24 @@ router.post('/login', async (req, res, next) => {
     }
 
     const { username, password } = value;
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || '';
 
-    // 查找用户
+    // 查找管理员用户
     const result = await query(
-      'SELECT id, username, email, password_hash, role FROM users WHERE username = $1',
-      [username]
+      'SELECT id, username, email, password_hash, role FROM users WHERE username = $1 AND role = $2',
+      [username, 'admin']
     );
 
     if (result.rows.length === 0) {
-      throw createError('用户名或密码错误', 401);
+      // 记录登录失败
+      await logOperation('admin_login_failed', {
+        username,
+        reason: 'user_not_found',
+        ip,
+        userAgent
+      });
+      throw createError('管理员用户名或密码错误', 401);
     }
 
     const user = result.rows[0];
@@ -127,18 +92,37 @@ router.post('/login', async (req, res, next) => {
     // 验证密码
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      throw createError('用户名或密码错误', 401);
+      // 记录登录失败
+      await logOperation('admin_login_failed', {
+        username,
+        reason: 'invalid_password',
+        ip,
+        userAgent
+      }, user.id);
+      throw createError('管理员用户名或密码错误', 401);
     }
 
     // 生成JWT
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const jwtSecret = process.env.JWT_SECRET || 'dev_secret_key_please_change_in_production';
+    const payload = {
+      userId: user.id,
+      username: user.username,
+      role: user.role
+    };
+    const options: SignOptions = {
+      expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as string
+    };
+    const token = jwt.sign(payload, jwtSecret, options);
+
+    // 记录成功登录
+    await logOperation('admin_login_success', {
+      username,
+      ip,
+      userAgent
+    }, user.id);
 
     res.json({
-      message: '登录成功',
+      message: '管理员登录成功',
       user: {
         id: user.id,
         username: user.username,
@@ -159,19 +143,46 @@ router.get('/me', authenticateToken, (req: AuthRequest, res) => {
   });
 });
 
-// 生成新的API密钥
-router.post('/api-key/generate', authenticateToken, async (req: AuthRequest, res, next) => {
+// 管理员注销
+router.post('/admin/logout', authenticateToken, async (req: AuthRequest, res, next) => {
   try {
-    const newApiKey = uuidv4();
-    
-    await query(
-      'UPDATE users SET api_key = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [newApiKey, req.user!.id]
-    );
+    if (!req.user || req.user.role !== 'admin') {
+      throw createError('仅管理员可以执行此操作', 403);
+    }
+
+    // 记录注销操作
+    await logOperation('admin_logout', {
+      username: req.user.username,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    }, req.user.id);
 
     res.json({
-      message: 'API密钥生成成功',
-      apiKey: newApiKey
+      message: '管理员注销成功'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 检查管理员状态
+router.get('/admin/status', authenticateToken, async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ 
+        isAdmin: false,
+        message: '非管理员用户' 
+      });
+    }
+
+    res.json({
+      isAdmin: true,
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role
+      }
     });
   } catch (error) {
     next(error);

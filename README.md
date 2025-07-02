@@ -116,20 +116,97 @@ pip install -r requirements.txt
 cd ../..
 ```
 
-### 3. 数据库设置
+### 3. 数据库设置（使用pgAdmin4图形界面）
 
+#### 步骤1: 启动PostgreSQL服务和pgAdmin4
 ```bash
-# 启动 PostgreSQL 服务
-# macOS (Homebrew): brew services start postgresql
-# Ubuntu/Debian: sudo systemctl start postgresql
-# Windows: 启动 PostgreSQL 服务
+# 确保PostgreSQL服务正在运行
+# Windows: 在服务管理器中启动PostgreSQL服务
+# 或使用命令: net start postgresql-x64-13 (版本号可能不同)
 
-# 创建数据库
-createdb ucass_datashare
-
-# 初始化数据库结构
-psql -d ucass_datashare -f database/init.sql
+# 启动pgAdmin4
+# 通常在开始菜单中找到pgAdmin4，或者浏览器访问 http://localhost:5050
 ```
+
+#### 步骤2: 连接到PostgreSQL服务器
+1. 打开pgAdmin4
+2. 如果是首次使用，需要设置主密码
+3. 右键点击 "Servers" → "Register" → "Server"
+4. 填写连接信息：
+   - **Name**: Local PostgreSQL
+   - **Host**: localhost
+   - **Port**: 5432
+   - **Username**: postgres
+   - **Password**: [您安装时设置的postgres密码]
+
+#### 步骤3: 创建数据库用户
+1. 在左侧导航栏展开服务器连接
+2. 右键点击 "Login/Group Roles" → "Create" → "Login/Group Role"
+3. 在 "General" 标签页：
+   - **Name**: `ucass_datashare`
+4. 在 "Definition" 标签页：
+   - **Password**: `Ww2368963068` (或您想要的密码)
+5. 在 "Privileges" 标签页：
+   - 勾选 **Can login?**
+   - 勾选 **Create databases?**
+6. 点击 "Save"
+
+#### 步骤4: 创建数据库
+1. 右键点击 "Databases" → "Create" → "Database"
+2. 在 "General" 标签页：
+   - **Database**: `ucass_datashare`
+   - **Owner**: `ucass_datashare`
+3. 点击 "Save"
+
+#### 步骤5: 初始化数据库结构
+
+**⚠️ 重要提示：推荐使用 `database/init_clean.sql` 文件而不是 `init.sql`，该文件已修复编码和密码哈希问题。**
+
+**方法1: 使用pgAdmin4 (推荐新手)**
+1. 展开 `ucass_datashare` 数据库
+2. 右键点击数据库名称 → "Query Tool"
+3. 打开项目中的 `database/init_clean.sql` 文件
+4. 复制所有内容到查询工具中
+5. 点击 "Execute/Refresh" 按钮 (▶️) 运行SQL脚本
+
+**方法2: 使用命令行 (推荐有经验用户)**
+```bash
+# 在项目根目录执行
+psql -h localhost -U ucass_datashare -d ucass_datashare -f database/init_clean.sql
+```
+
+#### 步骤6: 验证数据库初始化
+运行以下命令确保所有表和数据都正确创建：
+
+```sql
+-- 1. 查看所有表
+SELECT table_name FROM information_schema.tables 
+WHERE table_schema = 'public' ORDER BY table_name;
+
+-- 2. 验证管理员用户是否创建成功
+SELECT username, role, length(password_hash) as hash_length 
+FROM users WHERE username = 'admin';
+
+-- 3. 查看表结构
+\d users
+\d datasets  
+\d operation_logs
+
+-- 4. 验证触发器和函数
+SELECT proname FROM pg_proc WHERE proname LIKE '%update_timestamp%';
+```
+
+**预期结果：**
+- 应该看到3个表：`users`, `datasets`, `operation_logs`
+- 管理员用户存在，hash_length应为60 (bcrypt哈希长度)
+- 触发器函数 `update_updated_at` 存在
+
+#### 步骤7: 测试管理员登录
+初始化完成后，默认管理员账户信息：
+- **用户名**: `admin`
+- **密码**: `admin123`
+
+**如果登录失败，请参考下方的故障排除部分。**
 
 ### 4. 环境配置
 
@@ -143,30 +220,43 @@ cp apps/api-backend/env.example apps/api-backend/.env
 
 重要配置项：
 ```env
-# 数据库连接
+# 数据库配置
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ucass_datashare
-DB_USER=your_username
-DB_PASSWORD=your_password
+DB_USER=ucass_datashare
+DB_PASSWORD=Ww2368963068
 
-# JWT密钥 (生产环境请使用强密钥)
-JWT_SECRET=your_super_secret_jwt_key
+# JWT配置
+JWT_SECRET=dev_secret_key_please_change_in_production
+JWT_EXPIRES_IN=24h
 
-# 服务端口
+# 服务器配置
 PORT=3001
+NODE_ENV=development
+
+# 文件上传配置
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=100MB
+
+# CORS配置
+CORS_ORIGIN=http://localhost:3000 
 ```
 
 ### 5. 启动服务
 
 ```bash
-# 启动所有服务 (推荐)
+# 终端1
+cd apps/web-frontend
 bun dev
 
-# 或者分别启动
-bun --filter web-frontend dev      # 前端 (http://localhost:3000)
-bun --filter api-backend dev       # 后端 (http://localhost:3001) 
-cd apps/python-service && python main.py  # Python服务 (http://localhost:8000)
+# 终端2
+cd apps/api-backend
+bun dev
+
+# 终端3
+cd apps/python-service  
+python main.py
 ```
 
 ### 6. 访问应用
@@ -281,6 +371,178 @@ DEBUG=* bun --filter web-frontend dev
 # 后端调试
 NODE_ENV=development DEBUG=* bun --filter api-backend dev
 ```
+
+## 🔧 故障排除
+
+### 数据库相关问题
+
+#### 问题1: 管理员登录失败 "用户名或密码错误"
+
+**可能原因：**
+- 密码哈希损坏或不正确
+- 数据库表未正确初始化
+- 密码验证逻辑错误
+
+**解决方案：**
+
+1. **验证管理员用户是否存在：**
+```sql
+SELECT username, role, length(password_hash) as hash_length 
+FROM users WHERE username = 'admin';
+```
+
+2. **如果管理员不存在或密码哈希长度不是60，重新创建管理员：**
+```bash
+# 创建修复脚本
+cat > fix_admin.js << 'EOF'
+const bcrypt = require('bcryptjs');
+const { Client } = require('pg');
+
+async function fixAdmin() {
+  const client = new Client({
+    host: 'localhost',
+    port: 5432,
+    database: 'ucass_datashare',
+    user: 'ucass_datashare',
+    password: 'Ww2368963068'  // 请替换为您的数据库密码
+  });
+
+  try {
+    await client.connect();
+    
+    // 生成正确的密码哈希
+    const hashedPassword = await bcrypt.hash('admin123', 12);
+    
+    // 更新或插入管理员用户
+    await client.query(
+      `INSERT INTO users (id, username, password_hash, role, created_at, updated_at) 
+       VALUES (gen_random_uuid(), 'admin', $1, 'admin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (username) DO UPDATE SET password_hash = $1, updated_at = CURRENT_TIMESTAMP`,
+      [hashedPassword]
+    );
+    
+    console.log('✅ 管理员密码修复成功！');
+    console.log('用户名: admin');
+    console.log('密码: admin123');
+    
+  } catch (error) {
+    console.error('❌ 错误:', error);
+  } finally {
+    await client.end();
+  }
+}
+
+fixAdmin();
+EOF
+
+# 安装依赖并运行修复脚本
+bun install pg bcryptjs
+bun run fix_admin.js
+rm fix_admin.js
+```
+
+#### 问题2: 数据库连接失败
+
+**检查连接配置：**
+```bash
+# 测试数据库连接
+psql -h localhost -U ucass_datashare -d ucass_datashare -c "SELECT version();"
+```
+
+**常见解决方案：**
+- 确认PostgreSQL服务正在运行
+- 检查 `.env` 文件中的数据库配置
+- 确认用户权限和密码正确
+
+#### 问题3: 表不存在错误
+
+**完全重置数据库：**
+```sql
+-- 连接到postgres数据库
+\c postgres
+
+-- 删除并重新创建数据库
+DROP DATABASE IF EXISTS ucass_datashare;
+CREATE DATABASE ucass_datashare OWNER ucass_datashare;
+
+-- 重新执行初始化脚本
+\c ucass_datashare
+\i database/init_clean.sql
+```
+
+### 服务启动问题
+
+#### 问题: 端口占用
+
+```bash
+# 查找占用端口的进程
+# Windows
+netstat -ano | findstr :3001
+netstat -ano | findstr :3000
+
+# macOS/Linux  
+lsof -i :3001
+lsof -i :3000
+
+# 停止占用端口的进程 (Windows)
+taskkill /PID <进程ID> /F
+```
+
+#### 问题: Bun 相关错误
+
+```bash
+# 重新安装依赖
+rm -rf node_modules bun.lockb
+bun install
+
+# 清理缓存
+bun pm cache rm --all
+
+# 更新Bun
+bun upgrade
+```
+
+### 前端访问问题
+
+#### 问题: CORS 错误
+
+确保 `.env` 文件中的CORS配置正确：
+```env
+CORS_ORIGIN=http://localhost:3000
+```
+
+#### 问题: API请求失败
+
+1. 确认API服务在 http://localhost:3001 运行
+2. 检查网络标签页的错误信息
+3. 验证认证token是否有效
+
+### 获取更多帮助
+
+如果以上解决方案都无法解决问题：
+
+1. **查看详细日志：**
+```bash
+# API后端日志
+cd apps/api-backend && DEBUG=* bun dev
+
+# 前端开发服务器日志  
+cd apps/web-frontend && bun dev
+```
+
+2. **数据库查询日志：**
+在 `.env` 中添加：
+```env
+DB_LOGGING=true
+```
+
+3. **提交Issue：**
+请在GitHub仓库提交issue，包含：
+- 错误信息截图
+- 操作系统版本
+- Bun/Node.js版本
+- 数据库版本
+- 详细的复现步骤
 
 ## 📄 许可证
 

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database';
 
 export interface AuthRequest extends Request {
@@ -9,7 +10,13 @@ export interface AuthRequest extends Request {
     email: string;
     role: 'admin' | 'user';
   };
+  anonymousId?: string;
 }
+
+// 生成匿名用户标识
+export const generateAnonymousId = (): string => {
+  return `anon_${uuidv4().replace(/-/g, '').substring(0, 16)}`;
+};
 
 export const authenticateToken = async (
   req: AuthRequest,
@@ -67,6 +74,12 @@ export const optionalAuth = async (
 ) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+  
+  // 检查匿名用户标识
+  const anonymousId = req.headers['x-anonymous-id'] as string;
+  if (anonymousId) {
+    req.anonymousId = anonymousId;
+  }
 
   if (!token) {
     return next(); // 没有token，继续执行，但req.user为undefined
@@ -87,5 +100,21 @@ export const optionalAuth = async (
     console.warn('可选认证失败:', error);
   }
 
+  next();
+};
+
+// 匿名用户专用认证（仅提取匿名标识）
+export const anonymousAuth = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const anonymousId = req.headers['x-anonymous-id'] as string;
+  if (anonymousId) {
+    req.anonymousId = anonymousId;
+  } else {
+    // 如果没有匿名标识，生成一个
+    req.anonymousId = generateAnonymousId();
+  }
   next();
 }; 
