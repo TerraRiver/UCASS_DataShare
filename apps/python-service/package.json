@@ -1,0 +1,15 @@
+{
+  "name": "python-service",
+  "version": "1.0.0",
+  "description": "UCASS DataShare Python Service for data analysis and visualization",
+  "main": "main.py",
+  "scripts": {
+    "dev": "python main.py",
+    "start": "uvicorn main:app --host 0.0.0.0 --port 8000",
+    "install": "pip install -r requirements.txt",
+    "test": "python -m pytest"
+  },
+  "keywords": ["python", "fastapi", "data-analysis", "visualization"],
+  "author": "UCASS DataShare Team",
+  "license": "MIT"
+} 

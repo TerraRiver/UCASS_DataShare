@@ -1,0 +1,21 @@
+{
+  "name": "ucass-datashare",
+  "version": "1.0.0",
+  "description": "UCASS DataShare Platform - 社科大数据分享平台",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"bun --filter web-frontend dev\" \"bun --filter api-backend dev\" \"bun --filter python-service dev\"",
+    "build": "bun --filter web-frontend build && bun --filter api-backend build",
+    "start": "concurrently \"bun --filter web-frontend start\" \"bun --filter api-backend start\" \"bun --filter python-service start\"",
+    "db:init": "psql -d ucass_datashare -f database/init.sql"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "bun@1.0.0"
+} 
