@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Database, BarChart3, Users, Download, Upload, Search, Filter, Calendar, Sparkles, TrendingUp, FileText } from 'lucide-react'
+import { Database, Download, Upload, Search, Sparkles, TrendingUp, FileText } from 'lucide-react'
 import { useAuth } from '../components/auth/AuthContext'
 import { AdminOnly, AuthIndicator } from '../components/auth/ProtectedRoute'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -485,5 +485,5 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-      )
-  } 
+  )
+} 
