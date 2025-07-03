@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
+
+model Dataset {
+  id                   String   @id @default(cuid())
+  name                 String
+  catalog              String
+  description          String
+  filePath             String   @map("file_path")
+  fileSize             Int      @map("file_size")
+  fileType             String   @map("file_type")
+  uploadedBy           String?  @map("uploaded_by")
+  uploadTime           DateTime @default(now()) @map("upload_time")
+  updateTime           DateTime @updatedAt @map("update_time")
+  isReviewed           Boolean  @default(false) @map("is_reviewed")
+  isVisible            Boolean  @default(false) @map("is_visible")
+  enableVisualization  Boolean  @default(false) @map("enable_visualization")
+  enableAnalysis       Boolean  @default(false) @map("enable_analysis")
+  downloadCount        Int      @default(0) @map("download_count")
+
+  @@map("datasets")
+} 

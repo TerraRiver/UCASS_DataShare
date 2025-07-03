@@ -1,120 +1,35 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
-import { query } from '../config/database';
+import { ENV } from '@/config/env';
 
-export interface AuthRequest extends Request {
-  user?: {
+export interface AuthenticatedRequest extends Request {
+  adminUser?: {
     id: string;
     username: string;
-    email: string;
-    role: 'admin' | 'user';
   };
-  anonymousId?: string;
 }
 
-// 生成匿名用户标识
-export const generateAnonymousId = (): string => {
-  return `anon_${uuidv4().replace(/-/g, '').substring(0, 16)}`;
-};
-
-export const authenticateToken = async (
-  req: AuthRequest,
+export const requireAdmin = (
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ error: '访问令牌缺失' });
-  }
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
-    // 从数据库验证用户是否仍然存在
-    const userResult = await query(
-      'SELECT id, username, email, role FROM users WHERE id = $1',
-      [decoded.userId]
-    );
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-    if (userResult.rows.length === 0) {
-      return res.status(401).json({ error: '用户不存在' });
+    if (!token) {
+      return res.status(401).json({ error: '访问令牌缺失' });
     }
 
-    req.user = userResult.rows[0];
+    const decoded = jwt.verify(token, ENV.JWT_SECRET) as {
+      id: string;
+      username: string;
+    };
+
+    req.adminUser = decoded;
     next();
   } catch (error) {
-    console.error('JWT验证错误:', error);
-    return res.status(403).json({ error: '访问令牌无效' });
+    return res.status(403).json({ error: '无效的访问令牌' });
   }
-};
-
-export const requireAdmin = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  if (!req.user) {
-    return res.status(401).json({ error: '用户未认证' });
-  }
-
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: '需要管理员权限' });
-  }
-
-  next();
-};
-
-export const optionalAuth = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  // 检查匿名用户标识
-  const anonymousId = req.headers['x-anonymous-id'] as string;
-  if (anonymousId) {
-    req.anonymousId = anonymousId;
-  }
-
-  if (!token) {
-    return next(); // 没有token，继续执行，但req.user为undefined
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    const userResult = await query(
-      'SELECT id, username, email, role FROM users WHERE id = $1',
-      [decoded.userId]
-    );
-
-    if (userResult.rows.length > 0) {
-      req.user = userResult.rows[0];
-    }
-  } catch (error) {
-    // 忽略token验证错误，继续执行
-    console.warn('可选认证失败:', error);
-  }
-
-  next();
-};
-
-// 匿名用户专用认证（仅提取匿名标识）
-export const anonymousAuth = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const anonymousId = req.headers['x-anonymous-id'] as string;
-  if (anonymousId) {
-    req.anonymousId = anonymousId;
-  } else {
-    // 如果没有匿名标识，生成一个
-    req.anonymousId = generateAnonymousId();
-  }
-  next();
 }; 

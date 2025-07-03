@@ -1,77 +1,57 @@
-# 依赖包
+# Dependencies
 node_modules/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-pip-log.txt
-pip-delete-this-directory.txt
+.pnp
+.pnp.js
 
-# Bun
-bun.lockb
+# Testing
+/coverage
 
-# 构建产物
-dist/
-build/
-*.tgz
-*.tar.gz
+# Next.js
 .next/
+out/
 
-# 环境变量
+# Production
+build/
+dist/
+
+# Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# 日志文件
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-*.log
+.pnpm-debug.log*
 
-# IDE和编辑器
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Local env files
+.env*.local
 
-# 操作系统
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# 临时文件
-*.tmp
-*.temp
-
-# 数据库
-*.db
-*.sqlite
-*.sqlite3
-
-# 上传文件
-uploads/
-!uploads/.gitkeep
-
-# 测试覆盖率
-coverage/
-.nyc_output/
-
-# 缓存
-.cache/
-.eslintcache
+# Vercel
+.vercel
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
-# 其他
-.vercel
-.turbo 
+# Database
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+prisma/migrations/
+
+# Uploads
+uploads/
+*.log 

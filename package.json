@@ -1,28 +1,25 @@
 {
   "name": "ucass-datashare",
   "version": "1.0.0",
-  "description": "UCASS DataShare Platform - 社科大数据分享平台",
+  "description": "UCASS DataShare 人文社科数据分享平台",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "powershell -ExecutionPolicy Bypass -File scripts\\start-services.ps1",
-    "dev:frontend": "cd apps\\web-frontend && bun dev",
-    "dev:backend": "cd apps\\api-backend && bun dev",
-    "dev:python": "cd apps\\python-service && python main.py",
-    "build": "cd apps\\web-frontend && bun build && cd ..\\..\\apps\\api-backend && bun build",
-    "start": "echo Please run each service separately in different terminals",
-    "db:init": "psql -d ucass_datashare -f database/init.sql"
+    "dev": "bun run --filter='*' dev",
+    "build": "bun run --filter='*' build",
+    "start": "bun run --filter='*' start",
+    "db:generate": "cd apps/api-backend && bunx prisma generate",
+    "db:push": "cd apps/api-backend && bunx prisma db push",
+    "db:migrate": "cd apps/api-backend && bunx prisma migrate dev",
+    "db:studio": "cd apps/api-backend && bunx prisma studio"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "typescript": "^5.3.3"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "packageManager": "bun@1.0.0",
-  "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "pg": "^8.16.3"
+  "engines": {
+    "bun": ">=1.0.0"
   }
-}
+} 
