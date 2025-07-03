@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@nextui-org/react'
 import { 
   ArrowLeftIcon,
   CheckCircleIcon,
@@ -17,7 +18,8 @@ import {
   UserIcon,
   AlertCircleIcon,
   EyeIcon,
-  BarChart3Icon
+  BarChart3Icon,
+  StarIcon
 } from 'lucide-react'
 
 interface Dataset {
@@ -31,6 +33,7 @@ interface Dataset {
   uploadedBy: string
   isReviewed: boolean
   isVisible: boolean
+  isFeatured: boolean
   enableVisualization: boolean
   enableAnalysis: boolean
 }
@@ -43,8 +46,9 @@ export default function AdminReviewPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   
-  // 审核设置
-  const [visible, setVisible] = useState(true)
+  // 审核/状态设置
+  const [isVisible, setIsVisible] = useState(true)
+  const [isFeatured, setIsFeatured] = useState(false)
   const [enableVisualization, setEnableVisualization] = useState(false)
   const [enableAnalysis, setEnableAnalysis] = useState(false)
 
@@ -75,7 +79,8 @@ export default function AdminReviewPage() {
         setDataset(data.dataset)
         
         // 设置默认值
-        setVisible(data.dataset.isVisible)
+        setIsVisible(data.dataset.isVisible)
+        setIsFeatured(data.dataset.isFeatured)
         setEnableVisualization(data.dataset.enableVisualization)
         setEnableAnalysis(data.dataset.enableAnalysis)
       } else if (response.status === 401) {
@@ -91,12 +96,65 @@ export default function AdminReviewPage() {
     }
   }
 
+  const handleUpdateStatus = async (statusUpdate: Partial<Dataset>) => {
+    if (!dataset) return;
+    setSubmitting(true);
+
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/datasets/${dataset.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(statusUpdate),
+      });
+
+      if (response.ok) {
+        // Optimistically update local state or refetch
+        setDataset(prev => prev ? { ...prev, ...statusUpdate } : null);
+        if (statusUpdate.isVisible !== undefined) setIsVisible(statusUpdate.isVisible);
+        if (statusUpdate.isFeatured !== undefined) setIsFeatured(statusUpdate.isFeatured);
+        if (statusUpdate.enableVisualization !== undefined) setEnableVisualization(statusUpdate.enableVisualization);
+        if (statusUpdate.enableAnalysis !== undefined) setEnableAnalysis(statusUpdate.enableAnalysis);
+
+        // If this was an approval, also update the reviewed status
+        if (statusUpdate.isReviewed) {
+           setDataset(prev => prev ? { ...prev, isReviewed: true } : null);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || '状态更新失败');
+      }
+    } catch (error) {
+      setError('网络错误，请稍后再试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleReview = async (action: 'approve' | 'reject') => {
     if (!dataset) return
 
     setSubmitting(true)
     setError('')
 
+    if (action === 'approve') {
+      // Approve and set all other statuses in one go
+      await handleUpdateStatus({
+        isReviewed: true,
+        isVisible,
+        isFeatured,
+        enableVisualization,
+        enableAnalysis,
+      });
+      alert('数据集审核通过');
+      router.push('/admin/dashboard');
+      return;
+    }
+
+    // Handle rejection separately as it's a destructive action
     try {
       const token = localStorage.getItem('admin_token')
       const response = await fetch(`/api/admin/datasets/${dataset.id}/review`, {
@@ -105,12 +163,7 @@ export default function AdminReviewPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action,
-          visible,
-          enableVisualization,
-          enableAnalysis,
-        }),
+        body: JSON.stringify({ action: 'reject' }),
       })
 
       if (response.ok) {
@@ -235,73 +288,104 @@ export default function AdminReviewPage() {
             </Card>
           )}
 
-          {/* Review Settings */}
-          {dataset && !dataset.isReviewed && (
+          {/* Status Management */}
+          {dataset && (
             <Card>
               <CardHeader>
-                <CardTitle>审核设置</CardTitle>
+                <CardTitle>状态管理</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="visible"
-                      checked={visible}
-                      onChange={(e) => setVisible(e.target.checked)}
-                      className="rounded"
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="isVisible" className="flex items-center space-x-2">
+                      <EyeIcon className="h-4 w-4" />
+                      <span>公开可见</span>
+                    </Label>
+                    <Switch
+                      id="isVisible"
+                      isSelected={isVisible}
+                      onValueChange={(val) => {
+                        setIsVisible(val);
+                        if(dataset.isReviewed) handleUpdateStatus({ isVisible: val });
+                      }}
+                      color="primary"
                     />
-                    <Label htmlFor="visible">审核通过后立即公开显示</Label>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="isFeatured" className="flex items-center space-x-2">
+                      <StarIcon className="h-4 w-4" />
+                      <span>设为精选</span>
+                    </Label>
+                    <Switch
+                      id="isFeatured"
+                      isSelected={isFeatured}
+                      onValueChange={(val) => {
+                        setIsFeatured(val);
+                        if(dataset.isReviewed) handleUpdateStatus({ isFeatured: val });
+                      }}
+                      color="primary"
+                    />
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="visualization"
-                      checked={enableVisualization}
-                      onChange={(e) => setEnableVisualization(e.target.checked)}
-                      className="rounded"
-                    />
-                    <Label htmlFor="visualization" className="flex items-center">
-                      <EyeIcon className="mr-1 h-4 w-4" />
-                      启用数据可视化功能
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="enableVisualization" className="flex items-center space-x-2">
+                      <BarChart3Icon className="h-4 w-4" />
+                      <span>启用可视化</span>
                     </Label>
+                    <Switch
+                      id="enableVisualization"
+                      isSelected={enableVisualization}
+                      onValueChange={(val) => {
+                        setEnableVisualization(val);
+                        if(dataset.isReviewed) handleUpdateStatus({ enableVisualization: val });
+                      }}
+                      color="primary"
+                    />
                   </div>
-
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="analysis"
-                      checked={enableAnalysis}
-                      onChange={(e) => setEnableAnalysis(e.target.checked)}
-                      className="rounded"
-                    />
-                    <Label htmlFor="analysis" className="flex items-center">
-                      <BarChart3Icon className="mr-1 h-4 w-4" />
-                      启用数据分析功能
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="enableAnalysis" className="flex items-center space-x-2">
+                      <BarChart3Icon className="h-4 w-4" />
+                      <span>启用数据分析</span>
                     </Label>
+                    <Switch
+                      id="enableAnalysis"
+                      isSelected={enableAnalysis}
+                      onValueChange={(val: boolean) => {
+                        setEnableAnalysis(val);
+                        if(dataset.isReviewed) handleUpdateStatus({ enableAnalysis: val });
+                      }}
+                      color="primary"
+                    />
                   </div>
                 </div>
 
-                <div className="flex space-x-4 pt-4">
-                  <Button
-                    onClick={() => handleReview('approve')}
-                    disabled={submitting}
-                    className="flex-1"
-                  >
-                    <CheckCircleIcon className="mr-2 h-4 w-4" />
-                    {submitting ? '处理中...' : '通过审核'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleReview('reject')}
-                    disabled={submitting}
-                    className="flex-1"
-                  >
-                    <XCircleIcon className="mr-2 h-4 w-4" />
-                    {submitting ? '处理中...' : '拒绝审核'}
-                  </Button>
-                </div>
+                {/* Show review buttons only if not yet reviewed */}
+                {!dataset.isReviewed && (
+                  <>
+                    <hr className="border-border my-4" />
+                    <div className="flex justify-end space-x-4">
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => handleReview('reject')} 
+                        disabled={submitting}
+                      >
+                        <XCircleIcon className="mr-2 h-4 w-4" />
+                        {submitting ? '处理中...' : '拒绝并删除'}
+                      </Button>
+                      <Button 
+                        onClick={() => handleReview('approve')} 
+                        disabled={submitting}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <CheckCircleIcon className="mr-2 h-4 w-4" />
+                        {submitting ? '处理中...' : '批准数据集'}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

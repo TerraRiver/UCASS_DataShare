@@ -112,6 +112,7 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           uploadedBy: true,
           isReviewed: true,
           isVisible: true,
+          isFeatured: true,
           enableVisualization: true,
           enableAnalysis: true,
           downloadCount: true,
@@ -145,6 +146,22 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
 
     const dataset = await prisma.dataset.findUnique({
       where: { id },
+      select: {
+        id: true,
+        name: true,
+        catalog: true,
+        description: true,
+        fileType: true,
+        fileSize: true,
+        uploadTime: true,
+        uploadedBy: true,
+        isReviewed: true,
+        isVisible: true,
+        isFeatured: true,
+        enableVisualization: true,
+        enableAnalysis: true,
+        downloadCount: true,
+      },
     });
 
     if (!dataset) {
@@ -154,6 +171,36 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
     res.json({ dataset });
   } catch (error) {
     console.error('管理员获取数据集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 更新数据集状态 (更通用的接口)
+router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { isReviewed, isVisible, isFeatured, enableVisualization, enableAnalysis } = req.body;
+
+    // 构建要更新的数据对象，只包含请求中提供的字段
+    const dataToUpdate: Record<string, boolean> = {};
+    if (isReviewed !== undefined) dataToUpdate.isReviewed = isReviewed;
+    if (isVisible !== undefined) dataToUpdate.isVisible = isVisible;
+    if (isFeatured !== undefined) dataToUpdate.isFeatured = isFeatured;
+    if (enableVisualization !== undefined) dataToUpdate.enableVisualization = enableVisualization;
+    if (enableAnalysis !== undefined) dataToUpdate.enableAnalysis = enableAnalysis;
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return res.status(400).json({ error: '没有提供要更新的状态' });
+    }
+
+    const updatedDataset = await prisma.dataset.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({ message: '数据集状态更新成功', dataset: updatedDataset });
+  } catch (error) {
+    console.error('更新数据集状态错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });

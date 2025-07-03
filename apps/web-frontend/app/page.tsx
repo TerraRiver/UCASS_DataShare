@@ -83,7 +83,13 @@ export default function Home() {
 						}
 
 						return (
-							<Card isPressable key={index} className={cardClass}>
+							<Card 
+								as={Link}
+								href={`/discover?catalog=${encodeURIComponent(category.name)}`}
+								isPressable 
+								key={index} 
+								className={cardClass}
+							>
 								<div className="mb-4">
 									{category.icon}
 								</div>

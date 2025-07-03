@@ -213,6 +213,64 @@ router.get('/:id/download', async (req, res) => {
   }
 });
 
+// 获取数据预览
+router.get('/:id/preview', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const dataset = await prisma.dataset.findUnique({
+      where: { id },
+      select: { 
+        filePath: true, 
+        fileType: true,
+        isReviewed: true,
+        isVisible: true
+      },
+    });
+
+    if (!dataset) {
+      return res.status(404).json({ error: '数据集不存在' });
+    }
+
+    if (!dataset.isReviewed || !dataset.isVisible) {
+      return res.status(403).json({ error: '数据集不可访问' });
+    }
+
+    const filePath = path.resolve(dataset.filePath);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    if (dataset.fileType.toLowerCase() !== '.csv') {
+      return res.status(400).json({ error: '当前仅支持 CSV 文件预览' });
+    }
+    
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = fileContent.split('\n').slice(0, 51); // Header + 50 rows
+    
+    // Simple CSV to JSON conversion
+    const header = lines[0].split(',');
+    const data = lines.slice(1).filter(line => line).map(line => {
+      const values = line.split(',');
+      return header.reduce((obj, key, index) => {
+        obj[key.trim()] = values[index] ? values[index].trim() : '';
+        return obj;
+      }, {} as Record<string, string>);
+    });
+
+    res.json({
+      preview: {
+        headers: header,
+        rows: data
+      }
+    });
+
+  } catch (error) {
+    console.error('获取数据预览错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // 搜索数据集
 router.get('/search', async (req, res) => {
   // 重定向到公开数据集列表，带搜索参数
