@@ -8,6 +8,45 @@ const router = Router();
 // 所有管理员路由都需要身份验证
 router.use(requireAdmin);
 
+// 获取仪表盘统计数据
+router.get('/stats', async (req: AuthenticatedRequest, res) => {
+  try {
+    const totalDatasets = await prisma.dataset.count();
+    const pendingDatasets = await prisma.dataset.count({ where: { isReviewed: false } });
+    const approvedDatasets = await prisma.dataset.count({ where: { isReviewed: true } });
+
+    const totalDownloads = await prisma.dataset.aggregate({
+      _sum: {
+        downloadCount: true,
+      },
+    });
+
+    const datasetsByCategory = await prisma.dataset.groupBy({
+      by: ['catalog'],
+      _count: {
+        catalog: true,
+      },
+      where: { isReviewed: true },
+    });
+
+    const categoryCounts = datasetsByCategory.map(item => ({
+      name: item.catalog,
+      value: item._count.catalog
+    }));
+
+    res.json({
+      totalDatasets,
+      pendingDatasets,
+      approvedDatasets,
+      totalDownloads: totalDownloads._sum.downloadCount || 0,
+      datasetsByCategory: categoryCounts,
+    });
+  } catch (error) {
+    console.error('获取统计数据错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // 获取待审核数据集列表
 router.get('/datasets/pending', async (req: AuthenticatedRequest, res) => {
   try {
@@ -99,6 +138,26 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// [新增] 管理员获取单个数据集详情
+router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const dataset = await prisma.dataset.findUnique({
+      where: { id },
+    });
+
+    if (!dataset) {
+      return res.status(404).json({ error: '数据集不存在' });
+    }
+
+    res.json({ dataset });
+  } catch (error) {
+    console.error('管理员获取数据集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // 审核数据集
 router.put('/datasets/:id/review', async (req: AuthenticatedRequest, res) => {
   try {
@@ -143,6 +202,40 @@ router.put('/datasets/:id/review', async (req: AuthenticatedRequest, res) => {
     }
   } catch (error) {
     console.error('审核数据集错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 删除数据集
+router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const dataset = await prisma.dataset.findUnique({
+      where: { id },
+    });
+
+    if (!dataset) {
+      return res.status(404).json({ error: '数据集不存在' });
+    }
+
+    // 删除关联的文件
+    if (fs.existsSync(dataset.filePath)) {
+      try {
+        fs.unlinkSync(dataset.filePath);
+      } catch (fileError) {
+        console.error('删除文件失败:', fileError);
+        // 即使文件删除失败，也继续删除数据库记录
+      }
+    }
+
+    await prisma.dataset.delete({
+      where: { id },
+    });
+
+    res.json({ message: '数据集已成功删除' });
+  } catch (error) {
+    console.error('删除数据集错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -225,36 +318,6 @@ router.put('/datasets/:id/features', async (req: AuthenticatedRequest, res) => {
     });
   } catch (error) {
     console.error('设置数据集功能错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
-
-// 删除数据集
-router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { id } = req.params;
-
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-    });
-
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    // 删除文件
-    if (fs.existsSync(dataset.filePath)) {
-      fs.unlinkSync(dataset.filePath);
-    }
-
-    // 删除数据库记录
-    await prisma.dataset.delete({
-      where: { id },
-    });
-
-    res.json({ message: '数据集已删除' });
-  } catch (error) {
-    console.error('删除数据集错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });

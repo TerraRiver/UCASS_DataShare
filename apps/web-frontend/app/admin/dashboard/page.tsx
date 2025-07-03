@@ -1,267 +1,170 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, FC, ReactNode } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
-  FolderIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  DownloadIcon,
-  LogOutIcon,
-  AlertCircleIcon,
-  CalendarIcon
-} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Card, CardHeader, CardBody, CardFooter, Divider, Button } from "@nextui-org/react"
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, AlertTriangleIcon } from "lucide-react"
 
-interface DashboardStats {
-  totalDatasets: number
-  pendingReview: number
-  approvedDatasets: number
-  totalDownloads: number
+interface StatCardProps {
+  icon: React.ElementType;
+  title: string;
+  value: string | number;
+  color: string;
 }
 
-interface PendingDataset {
-  id: string
-  name: string
-  catalog: string
-  uploadTime: string
-  uploadedBy: string
+// 单个统计卡片组件
+const StatCard: FC<StatCardProps> = ({ icon, title, value, color }) => {
+  const Icon = icon
+  return (
+    <Card className="shadow-md">
+      <CardHeader className="flex gap-3">
+        <Icon className={`w-8 h-8 ${color}`} />
+        <div className="flex flex-col">
+          <p className="text-md">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
+      </CardHeader>
+    </Card>
+  )
 }
 
 export default function AdminDashboard() {
-  const router = useRouter()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [pendingDatasets, setPendingDatasets] = useState<PendingDataset[]>([])
+  const [stats, setStats] = useState({
+    totalDatasets: 0,
+    pendingDatasets: 0,
+    approvedDatasets: 0,
+    totalDownloads: 0,
+    datasetsByCategory: [],
+  })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    // 检查是否已登录
     const token = localStorage.getItem('admin_token')
     if (!token) {
       router.push('/admin/login')
       return
     }
 
-    fetchDashboardData()
+    async function fetchStats() {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/admin/stats', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('admin_token')
+            router.push('/admin/login')
+            return
+          }
+          throw new Error('获取统计数据失败')
+        }
+        const data = await response.json()
+        setStats(data)
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStats()
   }, [router])
 
-  const fetchDashboardData = async () => {
-    try {
-      const token = localStorage.getItem('admin_token')
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      }
-
-      // 获取待审核数据集
-      const pendingResponse = await fetch('/api/admin/datasets/pending', { headers })
-
-      if (pendingResponse.ok) {
-        const pendingData = await pendingResponse.json()
-        setPendingDatasets(pendingData.datasets || [])
-        
-        // 模拟统计数据
-        setStats({
-          totalDatasets: pendingData.datasets?.length || 0,
-          pendingReview: pendingData.datasets?.length || 0,
-          approvedDatasets: 0,
-          totalDownloads: 0
-        })
-      } else {
-        if (pendingResponse.status === 401) {
-          localStorage.removeItem('admin_token')
-          router.push('/admin/login')
-        } else {
-          setError('获取数据失败')
-        }
-      }
-    } catch (error) {
-      setError('网络错误，请稍后再试')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token')
-    router.push('/admin/login')
-  }
-
-  const handleApprove = async (datasetId: string) => {
-    try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`/api/admin/datasets/${datasetId}/review`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'approve',
-          visible: true,
-          enableVisualization: false,
-          enableAnalysis: false,
-        }),
-      })
-
-      if (response.ok) {
-        // 重新获取数据
-        fetchDashboardData()
-      } else {
-        setError('审核操作失败')
-      }
-    } catch (error) {
-      setError('网络错误')
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN')
-  }
-
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载中...</p>
-        </div>
-      </div>
-    )
+    return <div className="p-8">加载中...</div>
+  }
+
+  if (error) {
+    return <div className="p-8 text-red-500">错误: {error}</div>
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-6 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">UD</span>
-            </div>
-            <h1 className="text-2xl font-bold">UCASS DataShare 管理后台</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
-              前台首页
-            </Link>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOutIcon className="mr-2 h-4 w-4" />
-              退出登录
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="p-8 space-y-8">
+      <h1 className="text-3xl font-bold">管理仪表盘</h1>
 
-      <div className="container mx-auto px-4 py-8">
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircleIcon className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {/* 统计卡片 */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={BookMarkedIcon} title="数据集总数" value={stats.totalDatasets} color="text-blue-500" />
+        <StatCard icon={ClockIcon} title="等待审核" value={stats.pendingDatasets} color="text-yellow-500" />
+        <StatCard icon={CheckCircleIcon} title="已审核通过" value={stats.approvedDatasets} color="text-green-500" />
+        <StatCard icon={DownloadCloudIcon} title="总下载次数" value={stats.totalDownloads} color="text-indigo-500" />
+      </div>
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">数据集总数</CardTitle>
-                <FolderIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalDatasets}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">等待审核</CardTitle>
-                <ClockIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">{stats.pendingReview}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">已审核通过</CardTitle>
-                <CheckCircleIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.approvedDatasets}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">总下载次数</CardTitle>
-                <DownloadIcon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalDownloads}</div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Pending Reviews */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ClockIcon className="mr-2 h-5 w-5" />
-              待审核数据集 ({pendingDatasets.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pendingDatasets.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                暂无待审核的数据集
+      {/* 可视化图表 */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <h2 className="text-xl font-semibold">已通过数据集分类统计</h2>
+        </CardHeader>
+        <CardBody>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart
+              data={stats.datasetsByCategory}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#8884d8" name="数据集数量" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardBody>
+      </Card>
+      
+      <div className="grid md:grid-cols-2 gap-8">
+        {/* 待审核区域 */}
+        <Card className="shadow-lg">
+           <CardHeader className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <AlertTriangleIcon className="w-6 h-6 text-yellow-500" />
+                <h2 className="text-xl font-semibold">待审核任务</h2>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingDatasets.map((dataset) => (
-                  <div
-                    key={dataset.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h4 className="font-medium">{dataset.name}</h4>
-                        <span className="text-sm text-muted-foreground bg-secondary px-2 py-1 rounded">
-                          {dataset.catalog}
-                        </span>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        上传时间: {formatDate(dataset.uploadTime)}
-                        <span className="mx-2">•</span>
-                        上传者: {dataset.uploadedBy}
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Link href={`/datasets/${dataset.id}`}>
-                        <Button variant="outline" size="sm">
-                          查看详情
-                        </Button>
-                      </Link>
-                      <Button size="sm" onClick={() => handleApprove(dataset.id)}>
-                        <CheckCircleIcon className="mr-1 h-4 w-4" />
-                        通过审核
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              <Button as={Link} href="/admin/review" color="primary">
+                进入审核页面
+              </Button>
+           </CardHeader>
+           <Divider/>
+           <CardBody>
+              <p>
+                当前有 <span className="font-bold text-yellow-600">{stats.pendingDatasets}</span> 个数据集正在等待您的审核。
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                请前往专门的审核页面处理这些请求。
+              </p>
+           </CardBody>
+        </Card>
+
+        {/* 数据集管理区域 */}
+        <Card className="shadow-lg">
+            <CardHeader className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <BookMarkedIcon className="w-6 h-6 text-blue-500" />
+                <h2 className="text-xl font-semibold">数据集管理</h2>
               </div>
-            )}
-          </CardContent>
+              <Button as={Link} href="/admin/datasets" color="primary">
+                进入管理页面
+              </Button>
+            </CardHeader>
+            <Divider/>
+            <CardBody>
+              <p>
+                管理平台上的所有数据集，包括查看、编辑、设置可见性或删除。
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                共 <span className="font-bold text-blue-600">{stats.totalDatasets}</span> 个数据集。
+              </p>
+            </CardBody>
         </Card>
       </div>
+
     </div>
   )
 } 

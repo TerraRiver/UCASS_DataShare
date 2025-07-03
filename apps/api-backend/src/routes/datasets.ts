@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { prisma } from '@/config/database';
 import { ENV } from '@/config/env';
-import { requireAdmin, type AuthenticatedRequest } from '@/middleware/auth';
+import { requireAdmin, optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 
 const router = Router();
 
@@ -83,11 +83,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// 获取公开数据集列表
+// 获取公开数据集列表 (重构为按分类分组)
 router.get('/public', async (req, res) => {
   try {
-    const { page = '1', limit = '10', search, catalog } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const { search, catalog } = req.query;
 
     const where: any = {
       isReviewed: true,
@@ -105,37 +104,34 @@ router.get('/public', async (req, res) => {
       where.catalog = catalog;
     }
 
-    const [datasets, total] = await Promise.all([
-      prisma.dataset.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          catalog: true,
-          description: true,
-          fileType: true,
-          fileSize: true,
-          uploadTime: true,
-          downloadCount: true,
-          enableVisualization: true,
-          enableAnalysis: true,
-        },
-        orderBy: { uploadTime: 'desc' },
-        skip,
-        take: parseInt(limit as string),
-      }),
-      prisma.dataset.count({ where }),
-    ]);
-
-    res.json({
-      datasets,
-      pagination: {
-        total,
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        totalPages: Math.ceil(total / parseInt(limit as string)),
+    const datasets = await prisma.dataset.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        catalog: true,
+        description: true,
+        fileType: true,
+        fileSize: true,
+        uploadTime: true,
+        downloadCount: true,
+        enableVisualization: true,
+        enableAnalysis: true,
       },
+      orderBy: { uploadTime: 'desc' },
     });
+
+    // 按分类分组
+    const groupedDatasets = datasets.reduce((acc, dataset) => {
+      const { catalog } = dataset;
+      if (!acc[catalog]) {
+        acc[catalog] = [];
+      }
+      acc[catalog].push(dataset);
+      return acc;
+    }, {} as Record<string, typeof datasets>);
+
+    res.json({ groupedDatasets });
   } catch (error) {
     console.error('获取数据集列表错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
@@ -143,9 +139,10 @@ router.get('/public', async (req, res) => {
 });
 
 // 获取数据集详情
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
+    const isAdmin = !!req.adminUser; // 判断是否是管理员
 
     const dataset = await prisma.dataset.findUnique({
       where: { id },
@@ -162,6 +159,7 @@ router.get('/:id', async (req, res) => {
         enableAnalysis: true,
         isReviewed: true,
         isVisible: true,
+        uploadedBy: true, // 增加返回上传者信息
       },
     });
 
@@ -169,8 +167,9 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: '数据集不存在' });
     }
 
-    if (!dataset.isReviewed || !dataset.isVisible) {
-      return res.status(403).json({ error: '数据集不可访问' });
+    // 如果不是管理员，并且数据集未审核或不可见，则拒绝访问
+    if (!isAdmin && (!dataset.isReviewed || !dataset.isVisible)) {
+      return res.status(403).json({ error: '数据集当前不可访问' });
     }
 
     res.json({ dataset });

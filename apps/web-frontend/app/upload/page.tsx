@@ -23,16 +23,14 @@ const uploadSchema = z.object({
 type UploadFormData = z.infer<typeof uploadSchema>
 
 const categories = [
-  '心理学',
-  '社会学', 
-  '教育学',
-  '人类学',
   '政治学',
   '经济学',
-  '历史学',
-  '文学',
-  '语言学',
-  '哲学',
+  '社会学',
+  '传统与现代文化',
+  '法学',
+  '新闻传播',
+  '计算科学',
+  '数学',
   '其他'
 ]
 

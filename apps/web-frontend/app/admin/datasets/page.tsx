@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, Key, FC } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,16 @@ import {
   CheckCircleIcon,
   ClockIcon,
   TrashIcon,
-  SettingsIcon
+  SettingsIcon,
+  ChevronDownIcon,
+  EditIcon,
+  ToggleLeftIcon
 } from 'lucide-react'
+import {
+  Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
+  Dropdown, DropdownTrigger, DropdownMenu, DropdownItem,
+  Pagination, Spinner, Chip, Tooltip, Selection, SortDescriptor
+} from "@nextui-org/react"
 
 interface Dataset {
   id: string
@@ -36,99 +44,134 @@ interface Dataset {
   downloadCount: number
 }
 
-export default function AdminDatasetsPage() {
+type StatusColor = "success" | "warning" | "default"
+
+const STATUS_OPTIONS = [
+  {name: "已上线", uid: "approved"},
+  {name: "待审核", uid: "pending"},
+  {name: "已隐藏", uid: "hidden"},
+];
+
+const STATUS_COLOR_MAP: Record<string, StatusColor> = {
+  approved: "success",
+  pending: "warning",
+  hidden: "default",
+};
+
+const INITIAL_VISIBLE_COLUMNS = ["name", "catalog", "status", "uploadTime", "actions"];
+
+const COLUMNS = [
+  {name: "名称", uid: "name", sortable: true},
+  {name: "分类", uid: "catalog"},
+  {name: "状态", uid: "status"},
+  {name: "上传时间", uid: "uploadTime", sortable: true},
+  {name: "操作", uid: "actions"},
+];
+
+const ROWS_PER_PAGE = 10;
+
+const DatasetManagementPage: FC = () => {
   const router = useRouter()
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<Selection>("all")
+  const [visibleColumns, setVisibleColumns] = useState(new Set(INITIAL_VISIBLE_COLUMNS))
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
+    column: "uploadTime",
+    direction: "descending",
+  });
 
-  useEffect(() => {
-    // 检查登录状态
+  const fetchData = useCallback(() => {
     const token = localStorage.getItem('admin_token')
     if (!token) {
       router.push('/admin/login')
       return
     }
-
-    fetchDatasets()
-  }, [router, searchTerm, statusFilter])
-
-  const fetchDatasets = async () => {
-    try {
-      const token = localStorage.getItem('admin_token')
-      const params = new URLSearchParams()
-      if (searchTerm) params.append('search', searchTerm)
-      if (statusFilter !== 'all') params.append('status', statusFilter)
-
-      const response = await fetch(`/api/admin/datasets?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setDatasets(data.datasets || [])
-      } else if (response.status === 401) {
-        localStorage.removeItem('admin_token')
-        router.push('/admin/login')
-      } else {
-        setError('获取数据集列表失败')
+    
+    setLoading(true)
+    fetch('/api/admin/datasets?limit=10000', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => {
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('admin_token')
+          router.push('/admin/login')
+        }
+        throw new Error('获取数据失败')
       }
-    } catch (error) {
-      setError('网络错误，请稍后再试')
+      return res.json()
+    })
+    .then(data => {
+      setDatasets(data.datasets || [])
+    })
+    .catch(error => {
+      console.error("获取数据集失败:", error)
+      setDatasets([])
+    })
+    .finally(() => {
+      setLoading(false)
+    })
+  }, [router])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleDelete = useCallback(async (id: string) => {
+    const token = localStorage.getItem('admin_token')
+    if (!token) return router.push('/admin/login')
+    if (!confirm('确定要删除这个数据集吗？此操作不可逆！')) return
+    
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/admin/datasets/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        fetchData()
+      } else {
+        const err = await response.json()
+        alert(`删除失败: ${err.error || '未知错误'}`)
+      }
+    } catch (err) {
+      alert('删除时发生网络错误')
     } finally {
       setLoading(false)
     }
-  }
+  }, [router, fetchData])
 
-  const handleDelete = async (datasetId: string) => {
-    if (!confirm('确定要删除这个数据集吗？此操作不可撤销。')) {
-      return
-    }
-
+  const handleToggleVisibility = useCallback(async (dataset: Dataset) => {
+    const token = localStorage.getItem('admin_token')
+    if (!token) return router.push('/admin/login')
+    
+    setLoading(true)
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`/api/admin/datasets/${datasetId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        fetchDatasets() // 重新加载列表
-      } else {
-        setError('删除失败')
-      }
-    } catch (error) {
-      setError('网络错误')
-    }
-  }
-
-  const toggleVisibility = async (datasetId: string, currentVisibility: boolean) => {
-    try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`/api/admin/datasets/${datasetId}/visibility`, {
+      const response = await fetch(`/api/admin/datasets/${dataset.id}/visibility`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
+        headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ visible: !currentVisibility }),
+        body: JSON.stringify({ visible: !dataset.isVisible }),
       })
-
       if (response.ok) {
-        fetchDatasets() // 重新加载列表
+        setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, isVisible: !d.isVisible, isReviewed: true} : d))
       } else {
-        setError('更新可见性失败')
+        const err = await response.json()
+        alert(`切换可见性失败: ${err.error || '未知错误'}`)
       }
-    } catch (error) {
-      setError('网络错误')
+    } catch (err) {
+      alert('切换可见性时发生网络错误')
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [router])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-CN')
@@ -150,6 +193,141 @@ export default function AdminDatasetsPage() {
     }
     return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">已隐藏</span>
   }
+
+  const onSearchChange = useCallback((value) => {
+    if (value) {
+      setSearchTerm(value)
+      setPage(1)
+    } else {
+      setSearchTerm("")
+    }
+  }, [])
+  
+  const onClear = useCallback(() => {
+    setSearchTerm("")
+    setPage(1)
+  }, [])
+
+  const headerColumns = useMemo(() => {
+    const allColumns = [
+      {name: "ID", uid: "id"},
+      {name: "名称", uid: "name"},
+      {name: "分类", uid: "catalog"},
+      {name: "状态", uid: "status"},
+      {name: "上传时间", uid: "uploadTime"},
+      {name: "操作", uid: "actions"},
+    ];
+    return allColumns.filter((column) => visibleColumns.has(column.uid));
+  }, [visibleColumns]);
+
+  const renderCell = useCallback((dataset, columnKey) => {
+    const cellValue = dataset[columnKey];
+
+    switch (columnKey) {
+      case "name":
+        return <p className="font-bold">{cellValue}</p>;
+      case "status":
+        const currentStatus = dataset.isReviewed ? (dataset.isVisible ? 'approved' : 'hidden') : 'pending';
+        return (
+          <Chip color={STATUS_COLOR_MAP[currentStatus]} size="sm" variant="flat">
+            {STATUS_OPTIONS.find(s => s.uid === currentStatus)?.name}
+          </Chip>
+        );
+      case "uploadTime":
+        return new Date(cellValue).toLocaleDateString();
+      case "actions":
+        return (
+          <div className="relative flex items-center gap-2">
+            <Tooltip content="编辑数据集">
+              <Button isIconOnly size="sm" variant="light"><EditIcon className="w-4 h-4" /></Button>
+            </Tooltip>
+            <Tooltip content="切换可见性">
+              <Button isIconOnly size="sm" variant="light" onClick={() => handleToggleVisibility(dataset)}><ToggleLeftIcon className="w-4 h-4" /></Button>
+            </Tooltip>
+            <Tooltip color="danger" content="删除数据集">
+              <Button isIconOnly size="sm" variant="light" color="danger" onClick={() => handleDelete(dataset.id)}><TrashIcon className="w-4 h-4" /></Button>
+            </Tooltip>
+          </div>
+        );
+      default:
+        return cellValue;
+    }
+  }, [handleDelete, handleToggleVisibility]);
+
+  const topContent = useMemo(() => {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between gap-3 items-end">
+          <Input
+            isClearable
+            className="w-full sm:max-w-[44%]"
+            placeholder="按名称或分类搜索..."
+            startContent={<SearchIcon />}
+            value={searchTerm}
+            onClear={onClear}
+            onValueChange={onSearchChange}
+          />
+          <div className="flex gap-3">
+            <Dropdown>
+              <DropdownTrigger>
+                <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">
+                  状态
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                disallowEmptySelection
+                aria-label="Table Columns"
+                closeOnSelect={false}
+                selectedKeys={statusFilter}
+                selectionMode="single"
+                onSelectionChange={setStatusFilter}
+              >
+                <DropdownItem key="all" className="capitalize">全部</DropdownItem>
+                {STATUS_OPTIONS.map((status) => (
+                  <DropdownItem key={status.uid} className="capitalize">
+                    {status.name}
+                  </DropdownItem>
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </div>
+        </div>
+      </div>
+    );
+  }, [searchTerm, onSearchChange, onClear, statusFilter]);
+
+  const filteredItems = useMemo(() => {
+    let filteredDatasets = [...datasets];
+    if (searchTerm) {
+      filteredDatasets = filteredDatasets.filter(dataset =>
+        dataset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dataset.catalog.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    const statusKey = statusFilter !== 'all' && Array.from(statusFilter)[0];
+    if (statusKey) {
+        filteredDatasets = filteredDatasets.filter(dataset => {
+            const currentStatus = dataset.isReviewed ? (dataset.isVisible ? 'approved' : 'hidden') : 'pending';
+            return currentStatus === statusKey;
+        });
+    }
+    return filteredDatasets;
+  }, [datasets, searchTerm, statusFilter]);
+
+  const pagedItems = useMemo(() => {
+    const start = (page - 1) * ROWS_PER_PAGE;
+    const end = start + ROWS_PER_PAGE;
+    return filteredItems.slice(start, end);
+  }, [page, filteredItems]);
+
+  const sortedItems = useMemo(() => {
+    return [...pagedItems].sort((a: Dataset, b: Dataset) => {
+      const first = a[sortDescriptor.column as keyof Dataset] as any;
+      const second = b[sortDescriptor.column as keyof Dataset] as any;
+      const cmp = first < second ? -1 : first > second ? 1 : 0;
+      return sortDescriptor.direction === 'descending' ? -cmp : cmp;
+    });
+  }, [sortDescriptor, pagedItems]);
 
   if (loading) {
     return (
@@ -187,115 +365,62 @@ export default function AdminDatasetsPage() {
         {/* Search and Filter */}
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索数据集..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div className="w-full md:w-48">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="all">所有状态</option>
-                  <option value="pending">待审核</option>
-                  <option value="approved">已通过</option>
-                  <option value="hidden">已隐藏</option>
-                </select>
-              </div>
-            </div>
+            {topContent}
           </CardContent>
         </Card>
 
         {/* Dataset List */}
         <Card>
           <CardHeader>
-            <CardTitle>数据集列表 ({datasets.length})</CardTitle>
+            <CardTitle>数据集列表 ({filteredItems.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {datasets.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                没有找到数据集
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {datasets.map((dataset) => (
-                  <div
-                    key={dataset.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <FolderIcon className="h-5 w-5 text-muted-foreground" />
-                        <h3 className="font-medium">{dataset.name}</h3>
-                        {getStatusBadge(dataset)}
-                        <span className="text-sm text-muted-foreground bg-secondary px-2 py-1 rounded">
-                          {dataset.catalog}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {dataset.description}
-                      </p>
-                      <div className="flex items-center text-xs text-muted-foreground space-x-4">
-                        <div className="flex items-center">
-                          <CalendarIcon className="mr-1 h-3 w-3" />
-                          {formatDate(dataset.uploadTime)}
-                        </div>
-                        <span>大小: {formatFileSize(dataset.fileSize)}</span>
-                        <span>下载: {dataset.downloadCount} 次</span>
-                        <span>上传者: {dataset.uploadedBy}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Link href={`/datasets/${dataset.id}`}>
-                        <Button variant="outline" size="sm">
-                          查看
-                        </Button>
-                      </Link>
-                      {dataset.isReviewed && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleVisibility(dataset.id, dataset.isVisible)}
-                        >
-                          {dataset.isVisible ? (
-                            <EyeOffIcon className="h-4 w-4" />
-                          ) : (
-                            <EyeIcon className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
-                      {!dataset.isReviewed && (
-                        <Link href={`/admin/review/${dataset.id}`}>
-                          <Button size="sm">
-                            <CheckCircleIcon className="mr-1 h-4 w-4" />
-                            审核
-                          </Button>
-                        </Link>
-                      )}
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(dataset.id)}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <Table
+              aria-label="数据集管理表格"
+              isHeaderSticky
+              bottomContent={
+                <div className="flex w-full justify-center">
+                  <Pagination
+                    isCompact
+                    showControls
+                    showShadow
+                    color="primary"
+                    page={page}
+                    total={Math.ceil(filteredItems.length / ROWS_PER_PAGE)}
+                    onChange={(p) => setPage(p)}
+                  />
+                </div>
+              }
+              topContent={topContent}
+              topContentPlacement="outside"
+              sortDescriptor={sortDescriptor}
+              onSortChange={setSortDescriptor}
+            >
+              <TableHeader columns={COLUMNS}>
+                {(column) => (
+                  <TableColumn key={column.uid} allowsSorting={column.sortable}>
+                    {column.name}
+                  </TableColumn>
+                )}
+              </TableHeader>
+              <TableBody 
+                items={sortedItems} 
+                isLoading={loading}
+                loadingContent={<Spinner label="加载中..." />}
+                emptyContent={"未找到匹配的数据集"}
+              >
+                {(item) => (
+                  <TableRow key={item.id}>
+                    {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
     </div>
   )
-} 
+}
+
+export default DatasetManagementPage 

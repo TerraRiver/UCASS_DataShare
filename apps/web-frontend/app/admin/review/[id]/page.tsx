@@ -64,7 +64,7 @@ export default function AdminReviewPage() {
   const fetchDataset = async (id: string) => {
     try {
       const token = localStorage.getItem('admin_token')
-      const response = await fetch(`/api/datasets/${id}`, {
+      const response = await fetch(`/api/admin/datasets/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
