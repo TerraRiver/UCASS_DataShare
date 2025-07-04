@@ -55,3 +55,4 @@ prisma/migrations/
 # Uploads
 uploads/
 *.log 
+*.mp4
