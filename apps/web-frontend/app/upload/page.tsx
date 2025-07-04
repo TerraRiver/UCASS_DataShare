@@ -16,8 +16,12 @@ import { ArrowLeftIcon, UploadIcon, CheckCircleIcon, AlertCircleIcon } from 'luc
 const uploadSchema = z.object({
   name: z.string().min(1, '数据集名称不能为空'),
   catalog: z.string().min(1, '请选择数据集分类'),
+  summary: z.string().max(30, '简述不能超过30个字符').optional(),
   description: z.string().min(10, '描述至少需要10个字符'),
-  file: z.instanceof(FileList).refine((files) => files.length > 0, '请选择要上传的文件'),
+  source: z.string().min(1, '数据来源不能为空'),
+  sourceUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
+  sourceDate: z.string().optional(),
+  files: z.any().refine((value) => value && value.length > 0, '请选择要上传的文件'),
 })
 
 type UploadFormData = z.infer<typeof uploadSchema>
@@ -55,8 +59,22 @@ export default function UploadPage() {
       const formData = new FormData()
       formData.append('name', data.name)
       formData.append('catalog', data.catalog)
+      if (data.summary) {
+        formData.append('summary', data.summary)
+      }
       formData.append('description', data.description)
-      formData.append('file', data.file[0])
+      formData.append('source', data.source)
+      if (data.sourceUrl) {
+        formData.append('sourceUrl', data.sourceUrl)
+      }
+      if (data.sourceDate) {
+        formData.append('sourceDate', data.sourceDate)
+      }
+      
+      // 添加多个文件
+      for (let i = 0; i < data.files.length; i++) {
+        formData.append('files', data.files[i])
+      }
 
       const response = await fetch('/api/datasets/upload', {
         method: 'POST',
@@ -154,10 +172,26 @@ export default function UploadPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="summary">数据集简述 (选填)</Label>
+                  <Input
+                    id="summary"
+                    placeholder="30字符以内的简短描述"
+                    maxLength={30}
+                    {...register('summary')}
+                  />
+                  {errors.summary && (
+                    <p className="text-sm text-destructive">{errors.summary.message}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    简述将在数据集列表中显示，帮助用户快速了解数据集内容
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="description">数据集描述 *</Label>
                   <Textarea
                     id="description"
-                    placeholder="请详细描述数据集的内容、来源、用途等信息"
+                    placeholder="请详细描述数据集的内容、来源、用途等信息（支持Markdown格式）"
                     rows={5}
                     {...register('description')}
                   />
@@ -166,19 +200,58 @@ export default function UploadPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="file">上传文件 *</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                    <Label htmlFor="source">数据来源 *</Label>
+                    <Input
+                      id="source"
+                      placeholder="例如：国家统计局"
+                      {...register('source')}
+                    />
+                    {errors.source && (
+                      <p className="text-sm text-destructive">{errors.source.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceUrl">来源地址 (选填)</Label>
+                    <Input
+                      id="sourceUrl"
+                      placeholder="http://example.com"
+                      {...register('sourceUrl')}
+                    />
+                    {errors.sourceUrl && (
+                      <p className="text-sm text-destructive">{errors.sourceUrl.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                 <div className="space-y-2">
+                  <Label htmlFor="sourceDate">获取时间 (选填)</Label>
                   <Input
-                    id="file"
-                    type="file"
-                    accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.doc,.docx,.sav,.spss,.dta,.stata,.R,.py"
-                    {...register('file')}
+                    id="sourceDate"
+                    type="date"
+                    {...register('sourceDate')}
                   />
-                  {errors.file && (
-                    <p className="text-sm text-destructive">{errors.file.message}</p>
+                  {errors.sourceDate && (
+                    <p className="text-sm text-destructive">{errors.sourceDate.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="files">上传文件 *</Label>
+                  <Input
+                    id="files"
+                    type="file"
+                    multiple
+                    accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.doc,.docx,.sav,.spss,.dta,.stata,.R,.py,.zip,.rar,.7z,.tar,.gz"
+                    {...register('files')}
+                  />
+                  {errors.files && (
+                    <p className="text-sm text-destructive">{typeof errors.files.message === 'string' ? errors.files.message : ''}</p>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    支持格式：CSV, Excel, JSON, TXT, PDF, Word, SPSS, Stata, R, Python等
+                    支持格式：CSV, Excel, JSON, TXT, PDF, Word, SPSS, Stata, R, Python, 压缩包等<br/>
+                    可同时上传多个文件，单个数据集最多上传10个文件
                   </p>
                 </div>
 
@@ -188,7 +261,7 @@ export default function UploadPage() {
                     <li>• 请确保数据集符合伦理审查要求</li>
                     <li>• 敏感信息需要提前脱敏处理</li>
                     <li>• 数据集将由管理员审核后决定是否公开</li>
-                    <li>• 文件大小限制为100MB</li>
+                    <li>• 文件大小限制为10GB</li>
                   </ul>
                 </div>
 

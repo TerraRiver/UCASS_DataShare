@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -19,13 +21,15 @@ import {
   AlertCircleIcon,
   EyeIcon,
   BarChart3Icon,
-  StarIcon
+  StarIcon,
+  DownloadIcon
 } from 'lucide-react'
 
 interface Dataset {
   id: string
   name: string
   catalog: string
+  summary?: string
   description: string
   fileType: string
   fileSize: number
@@ -36,6 +40,7 @@ interface Dataset {
   isFeatured: boolean
   enableVisualization: boolean
   enableAnalysis: boolean
+  enablePreview: boolean
 }
 
 export default function AdminReviewPage() {
@@ -45,12 +50,14 @@ export default function AdminReviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   
   // 审核/状态设置
   const [isVisible, setIsVisible] = useState(true)
   const [isFeatured, setIsFeatured] = useState(false)
   const [enableVisualization, setEnableVisualization] = useState(false)
   const [enableAnalysis, setEnableAnalysis] = useState(false)
+  const [enablePreview, setEnablePreview] = useState(false)
 
   useEffect(() => {
     // 检查登录状态
@@ -83,6 +90,7 @@ export default function AdminReviewPage() {
         setIsFeatured(data.dataset.isFeatured)
         setEnableVisualization(data.dataset.enableVisualization)
         setEnableAnalysis(data.dataset.enableAnalysis)
+        setEnablePreview(data.dataset.enablePreview)
       } else if (response.status === 401) {
         localStorage.removeItem('admin_token')
         router.push('/admin/login')
@@ -118,6 +126,7 @@ export default function AdminReviewPage() {
         if (statusUpdate.isFeatured !== undefined) setIsFeatured(statusUpdate.isFeatured);
         if (statusUpdate.enableVisualization !== undefined) setEnableVisualization(statusUpdate.enableVisualization);
         if (statusUpdate.enableAnalysis !== undefined) setEnableAnalysis(statusUpdate.enableAnalysis);
+        if (statusUpdate.enablePreview !== undefined) setEnablePreview(statusUpdate.enablePreview);
 
         // If this was an approval, also update the reviewed status
         if (statusUpdate.isReviewed) {
@@ -148,6 +157,7 @@ export default function AdminReviewPage() {
         isFeatured,
         enableVisualization,
         enableAnalysis,
+        enablePreview,
       });
       alert('数据集审核通过');
       router.push('/admin/dashboard');
@@ -196,6 +206,38 @@ export default function AdminReviewPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const handleDownload = async () => {
+    if (!dataset) return
+
+    setDownloading(true)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`/api/datasets/${dataset.id}/download`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        // 创建下载链接
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${dataset.name}${dataset.fileType}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || '下载失败')
+      }
+    } catch (error) {
+      setError('下载失败，请稍后再试')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   if (loading) {
@@ -279,9 +321,26 @@ export default function AdminReviewPage() {
 
                   <div>
                     <h4 className="font-medium mb-2">描述</h4>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {dataset.description}
-                    </p>
+                    <div className="prose prose-sm max-w-none text-muted-foreground">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({node, ...props}) => <h1 className="text-lg font-bold text-foreground mb-3" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-base font-semibold text-foreground mb-2" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-sm font-medium text-foreground mb-2" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-2 leading-relaxed" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                          li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                          code: ({node, ...props}) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                          pre: ({node, ...props}) => <pre className="bg-muted p-2 rounded-md overflow-x-auto mb-2" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-muted-foreground pl-2 italic mb-2" {...props} />,
+                          a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" {...props} />,
+                        }}
+                      >
+                        {dataset.description}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -360,6 +419,22 @@ export default function AdminReviewPage() {
                       color="primary"
                     />
                   </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="enablePreview" className="flex items-center space-x-2">
+                      <EyeIcon className="h-4 w-4" />
+                      <span>启用数据预览</span>
+                    </Label>
+                    <Switch
+                      id="enablePreview"
+                      isSelected={enablePreview}
+                      onValueChange={(val: boolean) => {
+                        setEnablePreview(val);
+                        if(dataset.isReviewed) handleUpdateStatus({ enablePreview: val });
+                      }}
+                      color="primary"
+                    />
+                  </div>
                 </div>
 
                 {/* Show review buttons only if not yet reviewed */}
@@ -367,6 +442,14 @@ export default function AdminReviewPage() {
                   <>
                     <hr className="border-border my-4" />
                     <div className="flex justify-end space-x-4">
+                      <Button 
+                        onClick={handleDownload} 
+                        disabled={downloading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <DownloadIcon className="mr-2 h-4 w-4" />
+                        {downloading ? '下载中...' : '下载数据集'}
+                      </Button>
                       <Button 
                         variant="destructive" 
                         onClick={() => handleReview('reject')} 
@@ -420,31 +503,18 @@ export default function AdminReviewPage() {
                       <span>已启用分析功能</span>
                     </div>
                   )}
+                  {dataset.enablePreview && (
+                    <div className="flex items-center space-x-2 text-sm text-purple-600">
+                      <EyeIcon className="h-4 w-4" />
+                      <span>已启用数据预览</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>快速操作</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex space-x-4">
-                <Link href={`/datasets/${dataset?.id}`}>
-                  <Button variant="outline">
-                    查看详情页
-                  </Button>
-                </Link>
-                <Link href="/admin/datasets">
-                  <Button variant="outline">
-                    管理所有数据集
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@
     "@nextui-org/react": "^2.6.11",
     "@nextui-org/system": "^2.4.6",
     "@nextui-org/theme": "^2.4.5",
+    "@tailwindcss/line-clamp": "^0.4.4",
     "@types/recharts": "^2.0.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -23,7 +24,10 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.0.2",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.6",
     "swr": "^2.2.4",
     "tailwind-merge": "^2.1.0",
     "zod": "^3.22.4"

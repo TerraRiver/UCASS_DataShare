@@ -7,7 +7,28 @@ import {
   Button, Card, CardBody, Input, Accordion, AccordionItem, 
   Chip, ScrollShadow, Listbox, ListboxItem
 } from "@nextui-org/react";
-import { ArrowLeftIcon, SearchIcon, DownloadIcon, CalendarIcon, FolderIcon } from 'lucide-react'
+import { ArrowLeftIcon, SearchIcon, DownloadIcon, CalendarIcon, FolderIcon, StarIcon, LinkIcon, Building2Icon } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
+// 数据集类型定义
+interface Dataset {
+  id: string;
+  name: string;
+  catalog: string;
+  summary?: string;
+  description: string;
+  source: string;
+  sourceUrl?: string;
+  fileType: string;
+  fileSize: number;
+  uploadTime: string;
+  downloadCount: number;
+  enableVisualization: boolean;
+  enableAnalysis: boolean;
+  enablePreview: boolean;
+  isFeatured: boolean;
+}
 
 // 分类列表
 const ALL_CATEGORIES = [
@@ -16,14 +37,74 @@ const ALL_CATEGORIES = [
 ];
 
 // 单个数据集卡片
-const DatasetCard = ({ dataset }) => (
-  <Card shadow="sm" isPressable onPress={() => window.location.href = `/datasets/${dataset.id}`}>
+const DatasetCard = ({ dataset }: { dataset: Dataset }) => (
+  <Card shadow="sm" isPressable onPress={() => window.location.href = `/datasets/${dataset.id}`} className="relative">
     <CardBody>
       <div className="flex justify-between items-start">
-        <h4 className="font-bold text-large">{dataset.name}</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="font-bold text-large">{dataset.name}</h4>
+          {dataset.isFeatured && (
+            <Chip 
+              size="sm" 
+              color="warning" 
+              variant="flat"
+              startContent={<StarIcon className="w-3 h-3" />}
+            >
+              精选
+            </Chip>
+          )}
+        </div>
         <Chip color="primary" variant="flat">{dataset.catalog}</Chip>
       </div>
-      <p className="text-sm text-default-500 mt-2">{dataset.description.substring(0, 100)}...</p>
+      <div className="text-sm text-default-500 mt-2 line-clamp-3">
+        {dataset.summary ? (
+          // 如果有简述，直接显示简述
+          <span>{dataset.summary}</span>
+        ) : (
+          // 如果没有简述，显示描述的摘要（使用markdown渲染）
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({node, ...props}) => <span {...props} />,
+              h1: ({node, ...props}) => <span className="font-semibold" {...props} />,
+              h2: ({node, ...props}) => <span className="font-semibold" {...props} />,
+              h3: ({node, ...props}) => <span className="font-semibold" {...props} />,
+              strong: ({node, ...props}) => <strong {...props} />,
+              em: ({node, ...props}) => <em {...props} />,
+              code: ({node, ...props}) => <code className="bg-gray-100 px-1 rounded text-xs" {...props} />,
+            }}
+          >
+            {dataset.description.length > 100 ? dataset.description.substring(0, 100) + '...' : dataset.description}
+          </ReactMarkdown>
+        )}
+      </div>
+      
+      {/* 来源信息 */}
+      {dataset.source && (
+        <div className="mt-3 space-y-1">
+          <div className="flex items-center text-sm text-default-600">
+            <Building2Icon className="inline mr-1 w-4 h-4" />
+            <span className="font-medium">数据集来源：</span>
+            <span className="ml-1">{dataset.source}</span>
+          </div>
+          {dataset.sourceUrl && (
+            <div className="flex items-center text-sm text-default-600">
+              <LinkIcon className="inline mr-1 w-4 h-4" />
+              <span className="font-medium">数据集来源地址：</span>
+              <a 
+                href={dataset.sourceUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="ml-1 text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[200px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {dataset.sourceUrl}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+      
       <div className="flex justify-between items-center mt-4 text-sm text-default-500">
         <span><CalendarIcon className="inline mr-1 w-4 h-4" />{new Date(dataset.uploadTime).toLocaleDateString()}</span>
         <span><DownloadIcon className="inline mr-1 w-4 h-4" />{dataset.downloadCount} 次下载</span>
@@ -37,7 +118,7 @@ function DiscoverPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [groupedDatasets, setGroupedDatasets] = useState({});
+  const [groupedDatasets, setGroupedDatasets] = useState<Record<string, Dataset[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('catalog') || 'all');
@@ -62,14 +143,14 @@ function DiscoverPageContent() {
   };
   
   const filteredAndGroupedDatasets = useMemo(() => {
-    let filteredGroups = {};
+    let filteredGroups: Record<string, Dataset[]> = {};
 
     Object.keys(groupedDatasets).forEach(catalog => {
       if (selectedCategory !== 'all' && catalog !== selectedCategory) {
         return;
       }
 
-      const datasets = groupedDatasets[catalog].filter(d => 
+      const datasets = groupedDatasets[catalog].filter((d: Dataset) => 
         d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         d.description.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -82,8 +163,8 @@ function DiscoverPageContent() {
     return filteredGroups;
   }, [groupedDatasets, searchTerm, selectedCategory]);
 
-  const handleCategoryChange = (key) => {
-    const newCategory = key;
+  const handleCategoryChange = (key: any) => {
+    const newCategory = String(key);
     setSelectedCategory(newCategory);
     const params = new URLSearchParams(window.location.search);
     if (newCategory === 'all') {

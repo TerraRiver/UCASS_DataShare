@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -23,20 +25,31 @@ import {
   StarIcon
 } from 'lucide-react'
 
+interface DatasetFile {
+  id: string
+  filename: string
+  originalName: string
+  fileSize: number
+  fileType: string
+  mimeType?: string
+  uploadTime: string
+}
+
 interface Dataset {
   id: string
   name: string
   catalog: string
+  summary?: string
   description: string
-  fileType: string
-  fileSize: number
   uploadTime: string
   downloadCount: number
   enableVisualization: boolean
   enableAnalysis: boolean
+  enablePreview: boolean
   isReviewed: boolean
   isVisible: boolean
   isFeatured: boolean
+  files: DatasetFile[]
 }
 
 export default function DatasetDetailPage() {
@@ -50,9 +63,12 @@ export default function DatasetDetailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [activeSection, setActiveSection] = useState('main-info');
   const [copied, setCopied] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   const sections = [
     { id: 'main-info', title: '基本信息' },
+    { id: 'file-list', title: '文件列表' },
     { id: 'dataset-description', title: '数据集描述' },
     { id: 'data-preview', title: '数据预览' },
   ];
@@ -103,8 +119,9 @@ export default function DatasetDetailPage() {
 
       if (response.ok) {
         setDataset(data.dataset)
-        // Fetch preview data if dataset is eligible
-        if (data.dataset.fileType.toLowerCase() === '.csv') {
+        // Fetch preview data if dataset is eligible and preview is enabled
+        const csvFile = data.dataset.files.find((f: DatasetFile) => f.fileType.toLowerCase() === '.csv');
+        if (csvFile && data.dataset.enablePreview) {
           fetchPreview(id);
         }
       } else {
@@ -135,12 +152,11 @@ export default function DatasetDetailPage() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownloadSingle = async (fileId: string, fileName: string) => {
     if (!dataset) return
 
-    setDownloading(true)
     try {
-      const response = await fetch(`/api/datasets/${dataset.id}/download`)
+      const response = await fetch(`/api/datasets/${dataset.id}/download/${fileId}`)
       
       if (response.ok) {
         // 创建下载链接
@@ -148,7 +164,43 @@ export default function DatasetDetailPage() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `${dataset.name}${dataset.fileType}`
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        // 刷新页面数据以更新下载次数
+        fetchDataset(dataset.id)
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || '下载失败')
+      }
+    } catch (error) {
+      setError('下载失败，请稍后再试')
+    }
+  }
+
+  const handleDownloadZip = async () => {
+    if (!dataset || selectedFiles.length === 0) return
+
+    setDownloadingZip(true)
+    try {
+      const response = await fetch(`/api/datasets/${dataset.id}/download/zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileIds: selectedFiles }),
+      })
+      
+      if (response.ok) {
+        // 创建下载链接
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${dataset.name}.zip`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -163,8 +215,24 @@ export default function DatasetDetailPage() {
     } catch (error) {
       setError('下载失败，请稍后再试')
     } finally {
-      setDownloading(false)
+      setDownloadingZip(false)
     }
+  }
+
+  const handleSelectAllFiles = () => {
+    if (selectedFiles.length === dataset?.files.length) {
+      setSelectedFiles([])
+    } else {
+      setSelectedFiles(dataset?.files.map(f => f.id) || [])
+    }
+  }
+
+  const handleFileSelect = (fileId: string) => {
+    setSelectedFiles(prev => 
+      prev.includes(fileId) 
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    )
   }
 
   const formatFileSize = (bytes: number) => {
@@ -247,6 +315,12 @@ export default function DatasetDetailPage() {
             返回数据发现
           </Link>
           <div className="flex items-center space-x-2">
+            {dataset.enablePreview && dataset.files.some((f: DatasetFile) => f.fileType.toLowerCase() === '.csv') && (
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('data-preview')?.scrollIntoView({ behavior: 'smooth' })}>
+                <EyeIcon className="mr-2 h-4 w-4" />
+                数据预览
+              </Button>
+            )}
             {dataset.enableVisualization && (
               <Button variant="outline" size="sm">
                 <EyeIcon className="mr-2 h-4 w-4" />
@@ -259,10 +333,22 @@ export default function DatasetDetailPage() {
                 数据分析
               </Button>
             )}
-            <Button onClick={handleDownload} disabled={downloading}>
-              <DownloadIcon className="mr-2 h-4 w-4" />
-              {downloading ? '下载中...' : '下载数据集'}
-            </Button>
+            {dataset.files.length === 1 ? (
+              <Button 
+                onClick={() => handleDownloadSingle(dataset.files[0].id, dataset.files[0].originalName)}
+              >
+                <DownloadIcon className="mr-2 h-4 w-4" />
+                下载文件
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => document.getElementById('file-list')?.scrollIntoView({ behavior: 'smooth' })}
+                variant="outline"
+              >
+                <DownloadIcon className="mr-2 h-4 w-4" />
+                查看文件列表
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -335,9 +421,9 @@ export default function DatasetDetailPage() {
                   <div className="flex items-center space-x-2">
                     <FileIcon className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <div className="text-sm font-medium">文件大小</div>
+                      <div className="text-sm font-medium">文件信息</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatFileSize(dataset.fileSize)}
+                        {dataset.files.length} 个文件 • {formatFileSize(dataset.files.reduce((sum, f) => sum + f.fileSize, 0))}
                       </div>
                     </div>
                   </div>
@@ -361,17 +447,8 @@ export default function DatasetDetailPage() {
                   <div className="space-y-4 pl-2">
                     <div>
                       <h4 className="font-medium text-sm mb-2">下载数据集</h4>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" onClick={handleDownload} disabled={downloading}>
-                          <DownloadIcon className="mr-2 h-4 w-4" />
-                          {downloading ? '下载中...' : `下载原始文件 (${dataset.fileType.toUpperCase()})`}
-                        </Button>
-                        <Button size="sm" variant="outline" disabled>
-                          下载为 .CSV
-                        </Button>
-                        <Button size="sm" variant="outline" disabled>
-                          下载为 .JSON
-                        </Button>
+                      <div className="text-sm text-muted-foreground">
+                        请在"文件列表"部分选择需要下载的文件，支持单个文件下载或批量打包下载。
                       </div>
                     </div>
                     <div>
@@ -420,7 +497,7 @@ export default function DatasetDetailPage() {
                       <span className="text-sm">公开可见</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {dataset.isFeatured ? <StarIcon className="h-4 w-4 text-yellow-500 fill-yellow-500" /> : <StarIcon className="h-4 w-4 text-muted-foreground" />}
+                      {dataset.isFeatured ? <StarIcon className="h-4 w-4 text-yellow-500 fill-yellow-500" /> : <XCircleIcon className="h-4 w-4 text-red-500" />}
                       <span className="text-sm">精选数据集</span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -431,8 +508,82 @@ export default function DatasetDetailPage() {
                       {dataset.enableAnalysis ? <CheckCircleIcon className="h-4 w-4 text-green-500" /> : <XCircleIcon className="h-4 w-4 text-red-500" />}
                       <span className="text-sm">支持数据分析</span>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      {dataset.enablePreview ? <CheckCircleIcon className="h-4 w-4 text-green-500" /> : <XCircleIcon className="h-4 w-4 text-red-500" />}
+                      <span className="text-sm">支持数据预览</span>
+                    </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* File List Section */}
+            <Card id="file-list" className="mb-8 scroll-mt-28">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>文件列表</span>
+                  <div className="flex items-center space-x-2">
+                    {dataset.files.length > 1 && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectAllFiles}
+                        >
+                          {selectedFiles.length === dataset.files.length ? '取消全选' : '全选'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleDownloadZip}
+                          disabled={selectedFiles.length === 0 || downloadingZip}
+                        >
+                          <DownloadIcon className="mr-2 h-4 w-4" />
+                          {downloadingZip ? '打包中...' : `打包下载 (${selectedFiles.length})`}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {dataset.files.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
+                      <div className="flex items-center space-x-3">
+                        {dataset.files.length > 1 && (
+                          <input
+                            type="checkbox"
+                            checked={selectedFiles.includes(file.id)}
+                            onChange={() => handleFileSelect(file.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        )}
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <FileIcon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{file.originalName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {file.fileType.toUpperCase()} • {formatFileSize(file.fileSize)} • {formatDate(file.uploadTime)}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadSingle(file.id, file.originalName)}
+                      >
+                        <DownloadIcon className="mr-2 h-4 w-4" />
+                        下载
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {dataset.files.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    暂无文件
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -442,9 +593,30 @@ export default function DatasetDetailPage() {
                 <CardTitle>数据集描述</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {dataset.description}
-                </p>
+                <div className="prose prose-sm max-w-none text-muted-foreground">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // 自定义组件样式
+                      h1: ({node, ...props}) => <h1 className="text-xl font-bold text-foreground mb-4" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-lg font-semibold text-foreground mb-3" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-base font-medium text-foreground mb-2" {...props} />,
+                      p: ({node, ...props}) => <p className="mb-2 leading-relaxed" {...props} />,
+                      ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                      ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                      li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                      code: ({node, ...props}) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                      pre: ({node, ...props}) => <pre className="bg-muted p-3 rounded-md overflow-x-auto mb-4" {...props} />,
+                      blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-muted-foreground pl-4 italic mb-4" {...props} />,
+                      table: ({node, ...props}) => <table className="w-full border-collapse border border-border mb-4" {...props} />,
+                      th: ({node, ...props}) => <th className="border border-border p-2 bg-muted font-medium text-left" {...props} />,
+                      td: ({node, ...props}) => <td className="border border-border p-2" {...props} />,
+                      a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" {...props} />,
+                    }}
+                  >
+                    {dataset.description}
+                  </ReactMarkdown>
+                </div>
               </CardContent>
             </Card>
 
@@ -454,9 +626,13 @@ export default function DatasetDetailPage() {
                 <CardTitle>数据预览</CardTitle>
               </CardHeader>
               <CardContent>
-                {dataset.fileType.toLowerCase() !== '.csv' ? (
+                {!dataset.enablePreview ? (
                   <Alert>
-                    <AlertDescription>当前仅支持 CSV 文件预览。</AlertDescription>
+                    <AlertDescription>该数据集未启用预览功能。</AlertDescription>
+                  </Alert>
+                ) : !dataset.files.some((f: DatasetFile) => f.fileType.toLowerCase() === '.csv') ? (
+                  <Alert>
+                    <AlertDescription>当前仅支持 CSV 文件预览，该数据集中没有 CSV 文件。</AlertDescription>
                   </Alert>
                 ) : loadingPreview ? (
                   <p>加载预览中...</p>

@@ -1,17 +1,20 @@
 import dotenv from 'dotenv';
+import { z } from 'zod';
 
 dotenv.config();
 
-export const ENV = {
-  PORT: process.env.PORT || 3001,
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  DATABASE_URL: process.env.DATABASE_URL!,
-  JWT_SECRET: process.env.JWT_SECRET!,
-  UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
-  MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || '100000000'),
-  ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'admin',
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123',
-} as const;
+const envSchema = z.object({
+  PORT: z.coerce.number().default(3001),
+  NODE_ENV: z.string().default('development'),
+  DATABASE_URL: z.string(),
+  JWT_SECRET: z.string(),
+  UPLOAD_DIR: z.string().default('./uploads'),
+  MAX_FILE_SIZE: z.coerce.number().default(10737418240), // 10GB
+  ADMIN_USERNAME: z.string().default('admin'),
+  ADMIN_PASSWORD: z.string().default('admin123'),
+});
+
+export const ENV = envSchema.parse(process.env);
 
 // Validate required environment variables
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'] as const;

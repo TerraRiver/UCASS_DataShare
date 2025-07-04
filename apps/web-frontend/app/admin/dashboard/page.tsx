@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody, CardFooter, Divider, Button } from "@nextui-org/react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, AlertTriangleIcon } from "lucide-react"
+import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, AlertTriangleIcon, UsersIcon } from "lucide-react"
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
       
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-3 gap-8">
         {/* 待审核区域 */}
         <Card className="shadow-lg">
            <CardHeader className="flex justify-between items-center">
@@ -160,6 +160,28 @@ export default function AdminDashboard() {
               </p>
               <p className="text-sm text-gray-500 mt-2">
                 共 <span className="font-bold text-blue-600">{stats.totalDatasets}</span> 个数据集。
+              </p>
+            </CardBody>
+        </Card>
+
+        {/* 账号管理区域 */}
+        <Card className="shadow-lg">
+            <CardHeader className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <UsersIcon className="w-6 h-6 text-purple-500" />
+                <h2 className="text-xl font-semibold">账号管理</h2>
+              </div>
+              <Button as={Link} href="/admin/accounts" color="primary">
+                进入管理页面
+              </Button>
+            </CardHeader>
+            <Divider/>
+            <CardBody>
+              <p>
+                管理和维护管理员账号，包括创建、修改和删除操作。
+              </p>
+               <p className="text-sm text-gray-500 mt-2">
+                请谨慎操作，确保系统安全。
               </p>
             </CardBody>
         </Card>

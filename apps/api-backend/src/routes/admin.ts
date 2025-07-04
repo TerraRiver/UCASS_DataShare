@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '@/config/database';
 import { requireAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -56,11 +57,13 @@ router.get('/datasets/pending', async (req: AuthenticatedRequest, res) => {
         id: true,
         name: true,
         catalog: true,
+        summary: true,
         description: true,
         fileType: true,
         fileSize: true,
         uploadTime: true,
         uploadedBy: true,
+        enablePreview: true,
       },
       orderBy: { uploadTime: 'asc' },
     });
@@ -105,7 +108,11 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           id: true,
           name: true,
           catalog: true,
+          summary: true,
           description: true,
+          source: true,
+          sourceUrl: true,
+          sourceDate: true,
           fileType: true,
           fileSize: true,
           uploadTime: true,
@@ -115,6 +122,7 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           isFeatured: true,
           enableVisualization: true,
           enableAnalysis: true,
+          enablePreview: true,
           downloadCount: true,
         },
         orderBy: { uploadTime: 'desc' },
@@ -150,6 +158,7 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
         id: true,
         name: true,
         catalog: true,
+        summary: true,
         description: true,
         fileType: true,
         fileSize: true,
@@ -160,6 +169,7 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
         isFeatured: true,
         enableVisualization: true,
         enableAnalysis: true,
+        enablePreview: true,
         downloadCount: true,
       },
     });
@@ -179,7 +189,7 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
 router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { isReviewed, isVisible, isFeatured, enableVisualization, enableAnalysis } = req.body;
+    const { isReviewed, isVisible, isFeatured, enableVisualization, enableAnalysis, enablePreview } = req.body;
 
     // 构建要更新的数据对象，只包含请求中提供的字段
     const dataToUpdate: Record<string, boolean> = {};
@@ -188,6 +198,7 @@ router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
     if (isFeatured !== undefined) dataToUpdate.isFeatured = isFeatured;
     if (enableVisualization !== undefined) dataToUpdate.enableVisualization = enableVisualization;
     if (enableAnalysis !== undefined) dataToUpdate.enableAnalysis = enableAnalysis;
+    if (enablePreview !== undefined) dataToUpdate.enablePreview = enablePreview;
 
     if (Object.keys(dataToUpdate).length === 0) {
       return res.status(400).json({ error: '没有提供要更新的状态' });
@@ -201,6 +212,58 @@ router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
     res.json({ message: '数据集状态更新成功', dataset: updatedDataset });
   } catch (error) {
     console.error('更新数据集状态错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// [新增] 更新数据集元数据
+router.put('/datasets/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      name, 
+      description, 
+      catalog, 
+      source, 
+      sourceUrl, 
+      sourceDate,
+      isFeatured,
+      enableVisualization,
+      enableAnalysis
+    } = req.body;
+
+    // 构建要更新的数据对象
+    const dataToUpdate: any = {};
+    if (name) dataToUpdate.name = name;
+    if (description) dataToUpdate.description = description;
+    if (catalog) dataToUpdate.catalog = catalog;
+    if (source) dataToUpdate.source = source;
+    // 允许传入 null 或空字符串来清空可选字段
+    if (sourceUrl !== undefined) dataToUpdate.sourceUrl = sourceUrl; 
+    if (sourceDate !== undefined) {
+      dataToUpdate.sourceDate = sourceDate ? new Date(sourceDate) : null;
+    }
+    // 新增状态字段支持
+    if (typeof isFeatured === 'boolean') dataToUpdate.isFeatured = isFeatured;
+    if (typeof enableVisualization === 'boolean') dataToUpdate.enableVisualization = enableVisualization;
+    if (typeof enableAnalysis === 'boolean') dataToUpdate.enableAnalysis = enableAnalysis;
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return res.status(400).json({ error: '没有提供任何要更新的数据' });
+    }
+
+    const updatedDataset = await prisma.dataset.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({ message: '数据集更新成功', dataset: updatedDataset });
+
+  } catch (error) {
+     console.error('更新数据集错误:', error);
+    if ((error as any).code === 'P2025') {
+        return res.status(404).json({ error: '数据集不存在' });
+    }
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -249,7 +312,9 @@ router.put('/datasets/:id/review', async (req: AuthenticatedRequest, res) => {
     }
   } catch (error) {
     console.error('审核数据集错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: '服务器内部错误' });
+    }
   }
 });
 
@@ -407,6 +472,121 @@ router.get('/dashboard/stats', async (req: AuthenticatedRequest, res) => {
     });
   } catch (error) {
     console.error('获取仪表板统计错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// ------------------ 管理员账号管理 ------------------
+
+// 获取所有管理员列表
+router.get('/users', async (req: AuthenticatedRequest, res) => {
+  try {
+    const admins = await prisma.adminUser.findMany({
+      select: {
+        id: true,
+        username: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+    res.json(admins);
+  } catch (error) {
+    console.error('获取管理员列表错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 创建新管理员
+router.post('/users', async (req: AuthenticatedRequest, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: '用户名和密码不能为空' });
+  }
+
+  try {
+    const existingAdmin = await prisma.adminUser.findUnique({ where: { username } });
+    if (existingAdmin) {
+      return res.status(409).json({ error: '用户名已存在' });
+    }
+    
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    const newAdmin = await prisma.adminUser.create({
+      data: {
+        username,
+        passwordHash,
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+
+    res.status(201).json(newAdmin);
+  } catch (error) {
+    console.error('创建管理员错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+
+// 修改管理员密码
+router.put('/users/:id/password', async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({ error: '新密码不能为空' });
+  }
+
+  // 禁止修改自己的密码，引导至个人中心修改（如果未来有）
+  if (req.adminUser?.id === id) {
+    return res.status(403).json({ error: '无法在此处修改自己的密码' });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    await prisma.adminUser.update({
+      where: { id },
+      data: {
+        passwordHash,
+      },
+    });
+
+    res.json({ message: '密码更新成功' });
+  } catch (error) {
+    console.error('修改管理员密码错误:', error);
+    // Prisma's P2025 error code for record not found
+    if ((error as any).code === 'P2025') {
+        return res.status(404).json({ error: '管理员不存在' });
+    }
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 删除管理员
+router.delete('/users/:id', async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+
+  if (req.adminUser?.id === id) {
+    return res.status(403).json({ error: '无法删除自己' });
+  }
+  
+  try {
+    await prisma.adminUser.delete({
+      where: { id },
+    });
+    res.status(204).send();
+  } catch (error) {
+    console.error('删除管理员错误:', error);
+    if ((error as any).code === 'P2025') {
+        return res.status(404).json({ error: '管理员不存在' });
+    }
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
