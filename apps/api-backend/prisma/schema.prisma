@@ -54,6 +54,7 @@ model DatasetFile {
   fileType    String   @map("file_type")
   mimeType    String?  @map("mime_type")
   uploadTime  DateTime @default(now()) @map("upload_time")
+  isPreviewable Boolean @default(false) @map("is_previewable")
   
   datasetId   String   @map("dataset_id")
   dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)

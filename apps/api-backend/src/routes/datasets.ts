@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import archiver from 'archiver';
 import { prisma } from '@/config/database';
 import { ENV } from '@/config/env';
 import { requireAdmin, optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
@@ -50,6 +51,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     if (!files || files.length === 0) {
       return res.status(400).json({ error: '未上传文件' });
     }
+
+    // 修复 multer 导致的文件名中文乱码问题
+    files.forEach(file => {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    });
 
     const { name, catalog, summary, description, source, sourceUrl, sourceDate } = req.body;
 
@@ -140,14 +146,19 @@ router.get('/public', async (req, res) => {
         description: true,
         source: true,
         sourceUrl: true,
-        fileType: true,
-        fileSize: true,
         uploadTime: true,
         downloadCount: true,
         enableVisualization: true,
         enableAnalysis: true,
         enablePreview: true,
         isFeatured: true,
+        files: {
+          select: {
+            fileType: true,
+            fileSize: true,
+          },
+          take: 1, // 只获取第一个文件作为代表
+        }
       },
       orderBy: [
         { isFeatured: 'desc' }, // 精选数据集优先
@@ -161,9 +172,17 @@ router.get('/public', async (req, res) => {
       if (!acc[catalog]) {
         acc[catalog] = [];
       }
-      acc[catalog].push(dataset);
+      // 将文件信息扁平化到数据集对象上
+      const simplifiedDataset = {
+        ...dataset,
+        fileType: dataset.files[0]?.fileType || '',
+        fileSize: dataset.files[0]?.fileSize || 0,
+      };
+      delete (simplifiedDataset as any).files;
+
+      acc[catalog].push(simplifiedDataset);
       return acc;
-    }, {} as Record<string, typeof datasets>);
+    }, {} as Record<string, any[]>);
 
     res.json({ groupedDatasets });
   } catch (error) {
@@ -180,33 +199,9 @@ router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
 
     const dataset = await prisma.dataset.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        catalog: true,
-        summary: true,
-        description: true,
-        uploadTime: true,
-        downloadCount: true,
-        enableVisualization: true,
-        enableAnalysis: true,
-        enablePreview: true,
-        isReviewed: true,
-        isVisible: true,
-        isFeatured: true,
-        uploadedBy: true,
-        files: {
-          select: {
-            id: true,
-            filename: true,
-            originalName: true,
-            fileSize: true,
-            fileType: true,
-            mimeType: true,
-            uploadTime: true,
-          }
-        }
-      },
+      include: {
+        files: true
+      }
     });
 
     if (!dataset) {
@@ -226,32 +221,28 @@ router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
 });
 
 // 下载单个文件
-router.get('/:id/download/:fileId', async (req, res) => {
+router.get('/:id/download/:fileId', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id, fileId } = req.params;
+    const isAdmin = !!req.adminUser;
 
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-      include: {
-        files: true
-      }
+    const file = await prisma.datasetFile.findUnique({
+      where: { id: fileId, datasetId: id },
+      include: { dataset: true }
     });
 
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    if (!dataset.isReviewed || !dataset.isVisible) {
-      return res.status(403).json({ error: '数据集不可访问' });
-    }
-
-    const file = dataset.files.find(f => f.id === fileId);
     if (!file) {
-      return res.status(404).json({ error: '文件不存在' });
+      return res.status(404).json({ error: '文件不存在或不属于该数据集' });
+    }
+
+    if (!file.dataset.isReviewed || !file.dataset.isVisible) {
+      if (!isAdmin) {
+        return res.status(403).json({ error: '数据集不可访问' });
+      }
     }
 
     if (!fs.existsSync(file.filePath)) {
-      return res.status(404).json({ error: '文件不存在' });
+      return res.status(404).json({ error: '文件在服务器上不存在' });
     }
 
     // 增加下载次数
@@ -268,7 +259,7 @@ router.get('/:id/download/:fileId', async (req, res) => {
 });
 
 // 打包下载多个文件
-router.post('/:id/download/zip', async (req, res) => {
+router.post('/:id/download/zip', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
     const { fileIds } = req.body; // 要下载的文件ID数组
@@ -289,7 +280,9 @@ router.post('/:id/download/zip', async (req, res) => {
     }
 
     if (!dataset.isReviewed || !dataset.isVisible) {
-      return res.status(403).json({ error: '数据集不可访问' });
+      if (!req.adminUser) {
+        return res.status(403).json({ error: '数据集不可访问' });
+      }
     }
 
     // 过滤出要下载的文件
@@ -313,7 +306,6 @@ router.post('/:id/download/zip', async (req, res) => {
       res.download(file.filePath, file.originalName);
     } else {
       // 多个文件，创建zip包下载
-      const archiver = require('archiver');
       const archive = archiver('zip', { zlib: { level: 9 } });
 
       res.attachment(`${dataset.name}.zip`);
@@ -334,16 +326,15 @@ router.post('/:id/download/zip', async (req, res) => {
   }
 });
 
-// 获取数据预览
-router.get('/:id/preview', async (req, res) => {
+// 获取数据预览 (更新为预览指定文件)
+router.get('/:id/preview/:fileId', async (req: AuthenticatedRequest, res) => {
   try {
-    const { id } = req.params;
+    const { id, fileId } = req.params;
 
     const dataset = await prisma.dataset.findUnique({
       where: { id },
       select: { 
-        filePath: true, 
-        fileType: true,
+        enablePreview: true,
         isReviewed: true,
         isVisible: true
       },
@@ -354,27 +345,40 @@ router.get('/:id/preview', async (req, res) => {
     }
 
     if (!dataset.isReviewed || !dataset.isVisible) {
-      return res.status(403).json({ error: '数据集不可访问' });
+      if (!req.adminUser) {
+         return res.status(403).json({ error: '数据集当前不可访问' });
+      }
     }
 
-    const filePath = path.resolve(dataset.filePath);
+    if (!dataset.enablePreview) {
+      return res.status(403).json({ error: '此数据集未启用预览' });
+    }
+
+    const file = await prisma.datasetFile.findUnique({
+      where: { id: fileId }
+    });
+
+    if (!file || file.datasetId !== id || !file.isPreviewable) {
+      return res.status(404).json({ error: '文件不存在或未启用预览' });
+    }
+
+    const filePath = path.resolve(file.filePath);
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: '文件不存在' });
+      return res.status(404).json({ error: '文件在服务器上不存在' });
     }
 
-    if (dataset.fileType.toLowerCase() !== '.csv') {
+    if (file.fileType.toLowerCase() !== '.csv') {
       return res.status(400).json({ error: '当前仅支持 CSV 文件预览' });
     }
     
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const lines = fileContent.split('\n').slice(0, 51); // Header + 50 rows
     
-    // Simple CSV to JSON conversion
-    const header = lines[0].split(',');
-    const data = lines.slice(1).filter(line => line).map(line => {
+    const header = lines[0].split(',').map(h => h.trim());
+    const data = lines.slice(1).filter(line => line.trim()).map(line => {
       const values = line.split(',');
       return header.reduce((obj, key, index) => {
-        obj[key.trim()] = values[index] ? values[index].trim() : '';
+        obj[key] = values[index] ? values[index].trim() : '';
         return obj;
       }, {} as Record<string, string>);
     });
@@ -452,4 +456,4 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

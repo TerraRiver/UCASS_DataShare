@@ -13,6 +13,7 @@ interface PendingDataset {
   uploadTime: string;
   uploadedBy: string;
   description: string;
+  summary: string;
 }
 
 export default function ReviewPage() {
@@ -38,7 +39,7 @@ export default function ReviewPage() {
       }
 
       const data = await response.json();
-      setPendingDatasets(data.datasets || []);
+      setPendingDatasets(data || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -114,7 +115,7 @@ export default function ReviewPage() {
               </CardHeader>
               <Divider />
               <CardBody>
-                <p className="text-gray-600 mb-4">{dataset.description}</p>
+                <p className="text-gray-600 mb-4">{dataset.summary}</p>
                 <div className="flex items-center text-sm text-gray-500 space-x-4">
                   <span><UserIcon className="inline w-4 h-4 mr-1"/>上传者: {dataset.uploadedBy}</span>
                   <span><CalendarIcon className="inline w-4 h-4 mr-1"/>上传时间: {new Date(dataset.uploadTime).toLocaleDateString()}</span>

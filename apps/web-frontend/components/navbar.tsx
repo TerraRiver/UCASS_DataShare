@@ -15,7 +15,7 @@ import { link as linkStyles } from "@nextui-org/theme";
 import { siteConfig } from "@/config/site";
 import NextLink from "next/link";
 import clsx from "clsx";
-import { GanttChartSquare } from 'lucide-react'
+import { ListBulletIcon } from '@radix-ui/react-icons'
 
 export const Navbar = () => {
 
@@ -23,8 +23,10 @@ export const Navbar = () => {
 		<NextUINavbar maxWidth="xl" position="sticky">
 			<NavbarContent className="basis-1/5 sm:basis-full" justify="start">
 				<NavbarBrand as="li" className="gap-3 max-w-fit">
-					<NextLink className="flex justify-start items-center gap-2" href="/">
-						<GanttChartSquare className="h-6 w-6 text-red-500" />
+					<NextLink className="flex justify-start items-center gap-3" href="/">
+						<div className="p-1.5 bg-red-100 rounded-md">
+							<ListBulletIcon className="h-6 w-6 text-red-500" />
+						</div>
 						<p className="font-bold text-inherit">UCASS DataShare</p>
 					</NextLink>
 				</NavbarBrand>

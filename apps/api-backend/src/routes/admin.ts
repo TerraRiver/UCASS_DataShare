@@ -3,6 +3,8 @@ import { prisma } from '@/config/database';
 import { requireAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
+import path from 'path';
+import { ENV } from '@/config/env';
 
 const router = Router();
 
@@ -59,16 +61,17 @@ router.get('/datasets/pending', async (req: AuthenticatedRequest, res) => {
         catalog: true,
         summary: true,
         description: true,
-        fileType: true,
-        fileSize: true,
         uploadTime: true,
         uploadedBy: true,
         enablePreview: true,
+        _count: {
+          select: { files: true },
+        },
       },
       orderBy: { uploadTime: 'asc' },
     });
 
-    res.json({ datasets });
+    res.json(datasets);
   } catch (error) {
     console.error('获取待审核数据集错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
@@ -113,8 +116,6 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           source: true,
           sourceUrl: true,
           sourceDate: true,
-          fileType: true,
-          fileSize: true,
           uploadTime: true,
           uploadedBy: true,
           isReviewed: true,
@@ -124,6 +125,9 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           enableAnalysis: true,
           enablePreview: true,
           downloadCount: true,
+          _count: {
+            select: { files: true },
+          },
         },
         orderBy: { uploadTime: 'desc' },
         skip,
@@ -154,23 +158,8 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
 
     const dataset = await prisma.dataset.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        catalog: true,
-        summary: true,
-        description: true,
-        fileType: true,
-        fileSize: true,
-        uploadTime: true,
-        uploadedBy: true,
-        isReviewed: true,
-        isVisible: true,
-        isFeatured: true,
-        enableVisualization: true,
-        enableAnalysis: true,
-        enablePreview: true,
-        downloadCount: true,
+      include: {
+        files: true, // 包含所有文件信息
       },
     });
 
@@ -181,6 +170,69 @@ router.get('/datasets/:id', async (req: AuthenticatedRequest, res) => {
     res.json({ dataset });
   } catch (error) {
     console.error('管理员获取数据集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// [新增] 管理员下载数据集文件
+router.get('/datasets/:id/download/:fileId', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id, fileId } = req.params;
+
+    const file = await prisma.datasetFile.findUnique({
+      where: { id: fileId, datasetId: id }
+    });
+
+    if (!file) {
+      return res.status(404).json({ error: '文件不存在或不属于该数据集' });
+    }
+
+    const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
+
+    if (fs.existsSync(filePath)) {
+      // 修复中文文件名在下载时乱码的问题
+      const encodedFilename = encodeURIComponent(file.originalName);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+      res.download(filePath, file.originalName);
+    } else {
+      res.status(404).json({ error: '文件在服务器上不存在，可能已被清理' });
+    }
+  } catch (error) {
+    console.error('管理员下载文件错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// [新增] 更新单个文件的状态
+router.put('/datasets/:datasetId/files/:fileId', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { datasetId, fileId } = req.params;
+    const { isPreviewable } = req.body;
+
+    if (typeof isPreviewable !== 'boolean') {
+      return res.status(400).json({ error: 'isPreviewable 参数必须是布尔值' });
+    }
+
+    // 验证文件确实属于该数据集，增加安全性
+    const fileExists = await prisma.datasetFile.findFirst({
+      where: {
+        id: fileId,
+        datasetId: datasetId
+      }
+    });
+
+    if (!fileExists) {
+      return res.status(404).json({ error: '文件不存在或不属于该数据集' });
+    }
+
+    const updatedFile = await prisma.datasetFile.update({
+      where: { id: fileId },
+      data: { isPreviewable },
+    });
+
+    res.json({ message: '文件预览状态更新成功', file: updatedFile });
+  } catch (error) {
+    console.error('更新文件状态错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -261,334 +313,130 @@ router.put('/datasets/:id', async (req: AuthenticatedRequest, res) => {
 
   } catch (error) {
      console.error('更新数据集错误:', error);
-    if ((error as any).code === 'P2025') {
-        return res.status(404).json({ error: '数据集不存在' });
-    }
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
-// 审核数据集
-router.put('/datasets/:id/review', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { id } = req.params;
-    const { action, visible = true, enableVisualization = false, enableAnalysis = false } = req.body;
-
-    if (!['approve', 'reject'].includes(action)) {
-      return res.status(400).json({ error: '无效的审核操作' });
-    }
-
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-    });
-
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    if (action === 'approve') {
-      await prisma.dataset.update({
-        where: { id },
-        data: {
-          isReviewed: true,
-          isVisible: visible,
-          enableVisualization,
-          enableAnalysis,
-        },
-      });
-
-      res.json({ message: '数据集审核通过' });
-    } else {
-      // 拒绝审核，删除数据集和文件
-      if (fs.existsSync(dataset.filePath)) {
-        fs.unlinkSync(dataset.filePath);
-      }
-
-      await prisma.dataset.delete({
-        where: { id },
-      });
-
-      res.json({ message: '数据集审核拒绝，已删除' });
-    }
-  } catch (error) {
-    console.error('审核数据集错误:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: '服务器内部错误' });
-    }
-  }
-});
 
 // 删除数据集
 router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
 
+    // 1. 先查找数据集，获取所有关联的文件
     const dataset = await prisma.dataset.findUnique({
       where: { id },
+      include: { files: true },
     });
 
     if (!dataset) {
       return res.status(404).json({ error: '数据集不存在' });
     }
 
-    // 删除关联的文件
-    if (fs.existsSync(dataset.filePath)) {
-      try {
-        fs.unlinkSync(dataset.filePath);
-      } catch (fileError) {
-        console.error('删除文件失败:', fileError);
-        // 即使文件删除失败，也继续删除数据库记录
+    // 2. 删除服务器上的物理文件
+    dataset.files.forEach(file => {
+      const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileError) {
+          // 即使删除个别文件失败，也继续尝试删除数据库记录
+          console.error(`删除文件失败: ${filePath}`, fileError);
+        }
       }
-    }
+    });
 
+    // 3. 删除数据库中的数据集记录 (关联的文件记录会通过级联删除自动移除)
     await prisma.dataset.delete({
       where: { id },
     });
 
-    res.json({ message: '数据集已成功删除' });
+    res.json({ message: '数据集及其所有文件已成功删除' });
   } catch (error) {
     console.error('删除数据集错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
-// 设置数据集可见性
-router.put('/datasets/:id/visibility', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { id } = req.params;
-    const { visible } = req.body;
 
-    if (typeof visible !== 'boolean') {
-      return res.status(400).json({ error: '可见性参数无效' });
+// 获取所有管理员账号
+router.get('/accounts', async (req: AuthenticatedRequest, res) => {
+    try {
+        const admins = await prisma.adminUser.findMany({
+            select: {
+                id: true,
+                username: true,
+                createdAt: true,
+                updatedAt: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        res.json(admins);
+    } catch (error) {
+        console.error('获取管理员列表错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
     }
-
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-    });
-
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    if (!dataset.isReviewed) {
-      return res.status(400).json({ error: '数据集尚未审核' });
-    }
-
-    await prisma.dataset.update({
-      where: { id },
-      data: { isVisible: visible },
-    });
-
-    res.json({
-      message: `数据集已${visible ? '显示' : '隐藏'}`,
-      dataset: { id, isVisible: visible },
-    });
-  } catch (error) {
-    console.error('设置数据集可见性错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
-
-// 设置数据集功能
-router.put('/datasets/:id/features', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { id } = req.params;
-    const { enableVisualization, enableAnalysis } = req.body;
-
-    const updateData: any = {};
-    if (typeof enableVisualization === 'boolean') {
-      updateData.enableVisualization = enableVisualization;
-    }
-    if (typeof enableAnalysis === 'boolean') {
-      updateData.enableAnalysis = enableAnalysis;
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ error: '无有效的功能设置参数' });
-    }
-
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-    });
-
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    if (!dataset.isReviewed) {
-      return res.status(400).json({ error: '数据集尚未审核' });
-    }
-
-    await prisma.dataset.update({
-      where: { id },
-      data: updateData,
-    });
-
-    res.json({
-      message: '数据集功能设置已更新',
-      dataset: { id, ...updateData },
-    });
-  } catch (error) {
-    console.error('设置数据集功能错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
-
-// 获取管理员仪表板统计
-router.get('/dashboard/stats', async (req: AuthenticatedRequest, res) => {
-  try {
-    const [
-      totalDatasets,
-      pendingReview,
-      approvedDatasets,
-      totalDownloads,
-      recentUploads,
-    ] = await Promise.all([
-      prisma.dataset.count(),
-      prisma.dataset.count({ where: { isReviewed: false } }),
-      prisma.dataset.count({ where: { isReviewed: true, isVisible: true } }),
-      prisma.dataset.aggregate({
-        _sum: { downloadCount: true },
-      }),
-      prisma.dataset.findMany({
-        take: 5,
-        orderBy: { uploadTime: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          catalog: true,
-          uploadTime: true,
-          isReviewed: true,
-        },
-      }),
-    ]);
-
-    res.json({
-      totalDatasets,
-      pendingReview,
-      approvedDatasets,
-      totalDownloads: totalDownloads._sum.downloadCount || 0,
-      recentUploads,
-    });
-  } catch (error) {
-    console.error('获取仪表板统计错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
-
-// ------------------ 管理员账号管理 ------------------
-
-// 获取所有管理员列表
-router.get('/users', async (req: AuthenticatedRequest, res) => {
-  try {
-    const admins = await prisma.adminUser.findMany({
-      select: {
-        id: true,
-        username: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-    res.json(admins);
-  } catch (error) {
-    console.error('获取管理员列表错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
 });
 
 // 创建新管理员
-router.post('/users', async (req: AuthenticatedRequest, res) => {
-  const { username, password } = req.body;
+router.post('/accounts', async (req: AuthenticatedRequest, res) => {
+    try {
+        const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: '用户名和密码不能为空' });
-  }
+        if (!username || !password) {
+            return res.status(400).json({ error: '用户名和密码不能为空' });
+        }
+        if (password.length < 6) {
+             return res.status(400).json({ error: '密码长度不能少于6位' });
+        }
+        
+        const existingUser = await prisma.adminUser.findUnique({ where: { username } });
+        if (existingUser) {
+            return res.status(409).json({ error: '用户名已存在' });
+        }
 
-  try {
-    const existingAdmin = await prisma.adminUser.findUnique({ where: { username } });
-    if (existingAdmin) {
-      return res.status(409).json({ error: '用户名已存在' });
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        const newUser = await prisma.adminUser.create({
+            data: { username, passwordHash },
+            select: { id: true, username: true, createdAt: true }
+        });
+
+        res.status(201).json({ message: '管理员创建成功', user: newUser });
+    } catch (error) {
+        console.error('创建管理员错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
     }
-    
-    const passwordHash = await bcrypt.hash(password, 10);
-    
-    const newAdmin = await prisma.adminUser.create({
-      data: {
-        username,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        username: true,
-      },
-    });
-
-    res.status(201).json(newAdmin);
-  } catch (error) {
-    console.error('创建管理员错误:', error);
-    res.status(500).json({ error: '服务器内部错误' });
-  }
-});
-
-
-// 修改管理员密码
-router.put('/users/:id/password', async (req: AuthenticatedRequest, res) => {
-  const { id } = req.params;
-  const { password } = req.body;
-
-  if (!password) {
-    return res.status(400).json({ error: '新密码不能为空' });
-  }
-
-  // 禁止修改自己的密码，引导至个人中心修改（如果未来有）
-  if (req.adminUser?.id === id) {
-    return res.status(403).json({ error: '无法在此处修改自己的密码' });
-  }
-
-  try {
-    const passwordHash = await bcrypt.hash(password, 10);
-    
-    await prisma.adminUser.update({
-      where: { id },
-      data: {
-        passwordHash,
-      },
-    });
-
-    res.json({ message: '密码更新成功' });
-  } catch (error) {
-    console.error('修改管理员密码错误:', error);
-    // Prisma's P2025 error code for record not found
-    if ((error as any).code === 'P2025') {
-        return res.status(404).json({ error: '管理员不存在' });
-    }
-    res.status(500).json({ error: '服务器内部错误' });
-  }
 });
 
 // 删除管理员
-router.delete('/users/:id', async (req: AuthenticatedRequest, res) => {
-  const { id } = req.params;
+router.delete('/accounts/:id', async (req: AuthenticatedRequest, res) => {
+    try {
+        const { id } = req.params;
+        
+        // 禁止删除自己
+        if (req.adminUser?.id === id) {
+            return res.status(403).json({ error: '不能删除自己' });
+        }
+        
+        // 确保至少保留一个管理员
+        const adminCount = await prisma.adminUser.count();
+        if (adminCount <= 1) {
+            return res.status(400).json({ error: '不能删除唯一的管理员账号' });
+        }
 
-  if (req.adminUser?.id === id) {
-    return res.status(403).json({ error: '无法删除自己' });
-  }
-  
-  try {
-    await prisma.adminUser.delete({
-      where: { id },
-    });
-    res.status(204).send();
-  } catch (error) {
-    console.error('删除管理员错误:', error);
-    if ((error as any).code === 'P2025') {
-        return res.status(404).json({ error: '管理员不存在' });
+        await prisma.adminUser.delete({
+            where: { id },
+        });
+
+        res.json({ message: '管理员删除成功' });
+    } catch (error) {
+        console.error('删除管理员错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
     }
-    res.status(500).json({ error: '服务器内部错误' });
-  }
 });
 
-export default router; 
+
+export default router;

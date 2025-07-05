@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { 
-  Button, Card, CardBody, Input, Accordion, AccordionItem, 
+  Button, Card, CardBody, Input, 
   Chip, ScrollShadow, Listbox, ListboxItem
 } from "@nextui-org/react";
 import { ArrowLeftIcon, SearchIcon, DownloadIcon, CalendarIcon, FolderIcon, StarIcon, LinkIcon, Building2Icon } from 'lucide-react'
@@ -175,81 +175,68 @@ function DiscoverPageContent() {
     router.push(`?${params.toString()}`);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white sticky top-0 z-20">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Button as={Link} href="/" isIconOnly variant="light">
-              <ArrowLeftIcon className="h-5 w-5" />
-            </Button>
-            <div className="ml-4">
-              <h1 className="text-xl font-bold">数据集发现</h1>
-              <p className="text-sm text-default-500">探索和发现人文社科研究数据集</p>
-            </div>
-          </div>
-          <div className="w-full max-w-sm">
-            <Input
-              isClearable
-              placeholder="搜索所有数据集..."
-              startContent={<SearchIcon />}
-              value={searchTerm}
-              onValueChange={setSearchTerm}
-            />
-          </div>
-        </div>
-      </header>
+  const categoryItems = [
+    <ListboxItem key="all">全部</ListboxItem>,
+    ...ALL_CATEGORIES.map(cat => <ListboxItem key={cat}>{cat}</ListboxItem>)
+  ];
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <aside className="col-span-1 md:sticky top-24 self-start">
-            <Card>
-              <CardBody>
-                <h3 className="font-bold mb-2">分类筛选</h3>
-                <Listbox
-                  aria-label="数据集分类"
-                  selectionMode="single"
-                  selectedKeys={new Set([selectedCategory])}
-                  onSelectionChange={(keys) => handleCategoryChange(Array.from(keys)[0])}
-                >
-                  <ListboxItem key="all">全部</ListboxItem>
-                  {ALL_CATEGORIES.map(cat => (
-                    <ListboxItem key={cat}>{cat}</ListboxItem>
-                  ))}
-                </Listbox>
-              </CardBody>
-            </Card>
-          </aside>
-          
-          {/* Main Content */}
-          <main className="col-span-1 md:col-span-3">
-            {loading ? (
-              <div className="text-center py-12 text-default-500">加载中...</div>
-            ) : Object.keys(filteredAndGroupedDatasets).length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-default-500 mb-4">暂无符合条件的数据集</p>
-                <Button as={Link} href="/upload" color="primary">上传一个数据集</Button>
-              </div>
-            ) : (
-              <Accordion selectionMode="multiple" defaultExpandedKeys={Object.keys(filteredAndGroupedDatasets)}>
-                {Object.entries(filteredAndGroupedDatasets).map(([catalog, datasets]) => (
-                  <AccordionItem 
-                    key={catalog} 
-                    title={catalog}
-                    subtitle={`${datasets.length} 个数据集`}
-                  >
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {datasets.map((dataset) => (
-                        <DatasetCard key={dataset.id} dataset={dataset} />
-                      ))}
-                    </div>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            )}
-          </main>
-        </div>
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold">数据集发现</h1>
+        <p className="text-muted-foreground">探索、分析和分享来自人文社科领域的数据集</p>
+      </div>
+      <Input
+        isClearable
+        placeholder="搜索所有数据集..."
+        startContent={<SearchIcon />}
+        value={searchTerm}
+        onValueChange={setSearchTerm}
+      />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Sidebar */}
+        <aside className="col-span-1 md:sticky top-24 self-start">
+          <Card>
+            <CardBody>
+              <h3 className="font-bold mb-2">分类筛选</h3>
+              <Listbox
+                aria-label="数据集分类"
+                selectionMode="single"
+                selectedKeys={new Set([selectedCategory])}
+                onSelectionChange={(keys) => handleCategoryChange(Array.from(keys)[0])}
+                items={categoryItems}
+              >
+                {(item) => item}
+              </Listbox>
+            </CardBody>
+          </Card>
+        </aside>
+        
+        {/* Main Content */}
+        <main className="col-span-1 md:col-span-3">
+          {loading ? (
+            <div className="text-center py-12 text-default-500">加载中...</div>
+          ) : Object.keys(filteredAndGroupedDatasets).length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-default-500 mb-4">暂无符合条件的数据集</p>
+              <Button as={Link} href="/upload" color="primary">上传一个数据集</Button>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {Object.entries(filteredAndGroupedDatasets).map(([catalog, datasets]) => (
+                <div key={catalog}>
+                  <h2 className="text-2xl font-bold mb-2">{catalog}</h2>
+                  <p className="text-sm text-default-500 mb-4">{`共 ${datasets.length} 个数据集`}</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {datasets.map((dataset) => (
+                      <DatasetCard key={dataset.id} dataset={dataset} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )
