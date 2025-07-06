@@ -9,8 +9,21 @@
 ```bash
 cd apps/api-backend
 bun install
-bunx prisma generate
-bun run dev
+# 步骤1：确保.env文件配置正确
+# DATABASE_URL="postgresql://username:password@localhost:5432/ucass_datashare"
+
+# 步骤2：推送数据库schema（创建表）
+bun run db:push
+
+# 步骤3：生成Prisma客户端（可能有权限警告，但不影响功能）
+bun run db:generate
+
+# 步骤4：初始化种子数据
+bun run db:seed
+
+bun run build
+
+bun start
 ```
 
 ### 2. 启动前端应用
@@ -18,22 +31,16 @@ bun run dev
 ```bash
 cd apps/web-frontend
 bun install
-bun run dev
-```
-
-### 3. 创建管理员账号
-
-```bash
-cd apps/api-backend
-bun run db:seed
+bun run build
+bun start
 ```
 
 ### 4. 访问应用
 
-- 前台首页: http://localhost:3000
-- 数据发现: http://localhost:3000/discover
-- 数据上传: http://localhost:3000/upload
-- 管理后台: http://localhost:3000/admin/login
+- 前台首页: http://localhost:30001
+- 数据发现: http://localhost:30001/discover
+- 数据上传: http://localhost:30001/upload
+- 管理后台: http://localhost:30001/admin/login
 
 ### 5. 测试账号
 
@@ -41,37 +48,4 @@ bun run db:seed
 - 用户名: `admin`
 - 密码: `admin123`
 
-## 📁 测试数据
 
-根目录包含 `test-data.csv` 测试文件，可用于测试上传功能。
-
-## 🔧 主要功能
-
-### 用户功能
-- ✅ 数据集上传（支持多种格式）
-- ✅ 数据集发现和搜索
-- ✅ 数据集详情查看
-- ✅ 文件下载
-- ✅ 学术引用格式生成
-
-### 管理员功能
-- ✅ 安全登录认证
-- ✅ 数据集审核管理
-- ✅ 平台统计信息
-- ✅ 待审核列表管理
-
-## 🛠️ 技术栈
-
-- **前端**: Next.js 14 + TypeScript + Tailwind CSS
-- **后端**: Express.js + TypeScript + Prisma
-- **数据库**: PostgreSQL
-- **包管理**: Bun
-- **UI组件**: shadcn/ui
-
-## 📋 开发进度
-
-当前已完成阶段一MVP开发，包括完整的数据上传、审核、发现工作流。详见 [`开发方案.md`](./开发方案.md) 了解详细进度。
-
-## 📞 联系我们
-
-如有问题或建议，请联系项目团队。
