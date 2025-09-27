@@ -61,6 +61,16 @@ export default function Home() {
 					>
 						上传数据集
 					</Button>
+					<Button
+						as={Link}
+						href={'/upload-casestudy'}
+						color="secondary"
+						variant="solid"
+						size="lg"
+						className="px-8 py-4 text-lg"
+					>
+						上传案例集
+					</Button>
 				</div>
 			</section>
 

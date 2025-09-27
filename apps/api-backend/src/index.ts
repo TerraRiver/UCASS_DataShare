@@ -8,6 +8,7 @@ import { errorHandler, notFound } from './middleware/errorHandler';
 // 路由导入
 import authRoutes from './routes/auth';
 import datasetRoutes from './routes/datasets';
+import caseStudyRoutes from './routes/casestudies';
 import adminRoutes from './routes/admin';
 
 const app = express();
@@ -40,6 +41,7 @@ app.get('/health', (req, res) => {
 // API路由
 app.use('/api/auth', authRoutes);
 app.use('/api/datasets', datasetRoutes);
+app.use('/api/casestudies', caseStudyRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 根路径
@@ -50,6 +52,7 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       datasets: '/api/datasets',
+      casestudies: '/api/casestudies',
       admin: '/api/admin',
       health: '/health',
     },

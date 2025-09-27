@@ -60,4 +60,41 @@ model DatasetFile {
   dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
 
   @@map("dataset_files")
-} 
+}
+
+model CaseStudy {
+  id            String   @id @default(cuid())
+  title         String
+  author        String
+  discipline    String
+  publication   String
+  publicationYear Int?     @map("publication_year")
+  publicationUrl String?  @map("publication_url")
+  description   String
+  uploadedBy    String?  @map("uploaded_by")
+  uploadTime    DateTime @default(now()) @map("upload_time")
+  updateTime    DateTime @updatedAt @map("update_time")
+  isReviewed    Boolean  @default(false) @map("is_reviewed")
+  isVisible     Boolean  @default(false) @map("is_visible")
+  downloadCount Int      @default(0) @map("download_count")
+
+  files         CaseStudyFile[]
+
+  @@map("case_studies")
+}
+
+model CaseStudyFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String   @map("original_name")
+  filePath     String   @map("file_path")
+  fileSize     Int      @map("file_size")
+  fileType     String   @map("file_type")
+  mimeType     String?  @map("mime_type")
+  uploadTime   DateTime @default(now()) @map("upload_time")
+
+  caseStudyId  String   @map("case_study_id")
+  caseStudy    CaseStudy @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
+
+  @@map("case_study_files")
+}

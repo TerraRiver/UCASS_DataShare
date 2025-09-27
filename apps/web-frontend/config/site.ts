@@ -13,19 +13,35 @@ export const siteConfig = {
       href: "/discover",
     },
     {
+      label: "案例集中心",
+      href: "/casestudies",
+    },
+    {
       label: "数据上传",
       href: "/upload",
+    },
+    {
+      label: "案例集上传",
+      href: "/upload-casestudy",
     }
-	],
-	navMenuItems: [
-		{
-			label: "数据发现",
+ ],
+ navMenuItems: [
+  {
+   label: "数据发现",
 			href: "/discover",
 		},
+			 {
+			   label: "案例集中心",
+			   href: "/casestudies",
+			 },
 		{
 			label: "数据上传",
 			href: "/upload",
 		},
+			 {
+			   label: "案例集上传",
+			   href: "/upload-casestudy",
+			 },
 		{
 			label: "管理后台",
 			href: "/admin/login",

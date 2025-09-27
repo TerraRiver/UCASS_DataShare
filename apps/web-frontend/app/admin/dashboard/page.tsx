@@ -119,7 +119,7 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
       
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
         {/* 待审核区域 */}
         <Card className="shadow-lg">
            <CardHeader className="flex justify-between items-center">
@@ -160,6 +160,25 @@ export default function AdminDashboard() {
               </p>
               <p className="text-sm text-gray-500 mt-2">
                 共 <span className="font-bold text-blue-600">{stats.totalDatasets}</span> 个数据集。
+              </p>
+            </CardBody>
+        </Card>
+
+        {/* 案例集管理区域 */}
+        <Card className="shadow-lg">
+            <CardHeader className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <BookMarkedIcon className="w-6 h-6 text-green-500" />
+                <h2 className="text-xl font-semibold">案例集管理</h2>
+              </div>
+              <Button as={Link} href="/admin/casestudies" color="primary">
+                进入管理页面
+              </Button>
+            </CardHeader>
+            <Divider/>
+            <CardBody>
+              <p>
+                管理论文复现的案例集，包括审核、发布和删除。
               </p>
             </CardBody>
         </Card>

@@ -10,7 +10,11 @@
 cd apps/api-backend
 bun install
 # 步骤1：确保.env文件配置正确
-# DATABASE_URL="postgresql://username:password@localhost:5432/ucass_datashare"
+# 手动创建PostgreSQL数据库（如果尚未创建）
+# 数据库名称 (Database Name): ucass_datashare
+# 账号 (Username): ucass_datashare
+# 密码 (Password): Ww2368963068
+# DATABASE_URL="postgresql://ucass_datashare:Ww2368963068@localhost:5432/ucass_datashare"
 
 # 步骤2：推送数据库schema（创建表）
 bun run db:push

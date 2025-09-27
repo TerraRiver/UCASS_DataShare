@@ -202,13 +202,13 @@ const DatasetManagementPage: FC = () => {
     
     setLoading(true)
     try {
-      const response = await fetch(`/api/admin/datasets/${dataset.id}/visibility`, {
+      const response = await fetch(`/api/admin/datasets/${dataset.id}/status`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ visible: !dataset.isVisible }),
+        body: JSON.stringify({ isVisible: !dataset.isVisible }),
       })
       if (response.ok) {
         setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, isVisible: !d.isVisible, isReviewed: true} : d))

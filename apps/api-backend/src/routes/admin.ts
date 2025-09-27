@@ -359,6 +359,120 @@ router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
 });
 
 
+// ----------------- Case Studies Management -----------------
+
+// 获取所有案例集
+router.get('/casestudies', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { page = '1', limit = '20', status, search } = req.query;
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+    const where: any = {};
+    if (status === 'pending') where.isReviewed = false;
+    else if (status === 'approved') { where.isReviewed = true; where.isVisible = true; }
+    else if (status === 'hidden') { where.isReviewed = true; where.isVisible = false; }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } },
+        { author: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
+
+    const [caseStudies, total] = await Promise.all([
+      prisma.caseStudy.findMany({
+        where,
+        select: {
+          id: true, title: true, author: true, publication: true, publicationYear: true,
+          description: true, uploadTime: true, uploadedBy: true, isReviewed: true,
+          isVisible: true, downloadCount: true,
+          _count: { select: { files: true } },
+        },
+        orderBy: { uploadTime: 'desc' },
+        skip,
+        take: parseInt(limit as string),
+      }),
+      prisma.caseStudy.count({ where }),
+    ]);
+
+    res.json({
+      caseStudies,
+      pagination: {
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error) {
+    console.error('获取案例集列表错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 更新案例集状态
+router.put('/casestudies/:id/status', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { isReviewed, isVisible } = req.body;
+
+    const dataToUpdate: Record<string, boolean> = {};
+    if (isReviewed !== undefined) dataToUpdate.isReviewed = isReviewed;
+    if (isVisible !== undefined) dataToUpdate.isVisible = isVisible;
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return res.status(400).json({ error: '没有提供要更新的状态' });
+    }
+
+    const updatedCaseStudy = await prisma.caseStudy.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({ message: '案例集状态更新成功', caseStudy: updatedCaseStudy });
+  } catch (error) {
+    console.error('更新案例集状态错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 删除案例集
+router.delete('/casestudies/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const caseStudy = await prisma.caseStudy.findUnique({
+      where: { id },
+      include: { files: true },
+    });
+
+    if (!caseStudy) {
+      return res.status(404).json({ error: '案例集不存在' });
+    }
+
+    // 删除物理文件
+    caseStudy.files.forEach(file => {
+      const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileError) {
+          console.error(`删除文件失败: ${filePath}`, fileError);
+        }
+      }
+    });
+
+    // 删除数据库记录
+    await prisma.caseStudy.delete({ where: { id } });
+
+    res.json({ message: '案例集及其所有文件已成功删除' });
+  } catch (error) {
+    console.error('删除案例集错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+
 // 获取所有管理员账号
 router.get('/accounts', async (req: AuthenticatedRequest, res) => {
     try {
