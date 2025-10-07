@@ -5,57 +5,53 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { 
+import {
   ArrowLeftIcon,
   SearchIcon,
-  FolderIcon,
-  CalendarIcon,
   EyeIcon,
-  EyeOffIcon,
-  CheckCircleIcon,
-  ClockIcon,
   TrashIcon,
-  SettingsIcon,
-  ChevronDownIcon,
   EditIcon,
-  ToggleLeftIcon,
   StarIcon,
-  BarChartIcon,
-  PieChartIcon
+  PieChartIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExternalLinkIcon,
+  FileTextIcon
 } from 'lucide-react'
 import {
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Dropdown, DropdownTrigger, DropdownMenu, DropdownItem,
-  Pagination, Spinner, Chip, Tooltip, Selection, SortDescriptor,
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, 
-  Input, Textarea, Button
+  Spinner, Chip, Tooltip, Selection, SortDescriptor,
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure,
+  Input, Textarea, Button, Select, SelectItem
 } from "@nextui-org/react"
 
 interface Dataset {
   id: string
   name: string
   catalog: string
+  summary?: string
   description: string
   source?: string
   sourceUrl?: string
   sourceDate?: string
-  fileType: string
-  fileSize: number
+  recommendedCitations?: string[]
   uploadTime: string
   uploadedBy: string
   isReviewed: boolean
   isVisible: boolean
   isFeatured?: boolean
-  enableVisualization: boolean
-  enableAnalysis: boolean
+  enableDataAnalysis: boolean
+  enablePreview: boolean
   downloadCount: number
 }
 
 type StatusColor = "success" | "warning" | "default"
 
 const STATUS_OPTIONS = [
-  {name: "已上线", uid: "approved"},
+  {name: "全部", uid: "all"},
   {name: "待审核", uid: "pending"},
+  {name: "已上线", uid: "approved"},
   {name: "已隐藏", uid: "hidden"},
 ];
 
@@ -65,17 +61,17 @@ const STATUS_COLOR_MAP: Record<string, StatusColor> = {
   hidden: "default",
 };
 
-const INITIAL_VISIBLE_COLUMNS = ["name", "catalog", "status", "uploadTime", "actions"];
-
-const COLUMNS = [
-  {name: "名称", uid: "name", sortable: true},
-  {name: "分类", uid: "catalog"},
-  {name: "状态", uid: "status"},
-  {name: "上传时间", uid: "uploadTime", sortable: true},
-  {name: "操作", uid: "actions"},
+const CATEGORIES = [
+  '政治学',
+  '经济学',
+  '社会学',
+  '传统与现代文化',
+  '法学',
+  '新闻传播',
+  '计算科学',
+  '数学',
+  '其他'
 ];
-
-const ROWS_PER_PAGE = 10;
 
 const DatasetManagementPage: FC = () => {
   const router = useRouter()
@@ -83,23 +79,44 @@ const DatasetManagementPage: FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<Selection>("all")
-  const [visibleColumns, setVisibleColumns] = useState(new Set(INITIAL_VISIBLE_COLUMNS))
+  const [statusFilter, setStatusFilter] = useState<Selection>(new Set(["all"]))
   const [page, setPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(ROWS_PER_PAGE);
-  const [totalPages, setTotalPages] = useState(1)
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
     column: "uploadTime",
     direction: "descending",
   });
-  
+
   // Modal states
-  const {isOpen, onOpen, onOpenChange} = useDisclosure();
+  const {isOpen: isEditOpen, onOpen: onEditOpen, onOpenChange: onEditOpenChange} = useDisclosure();
+  const {isOpen: isReviewOpen, onOpen: onReviewOpen, onOpenChange: onReviewOpenChange} = useDisclosure();
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
+  const [editingCitations, setEditingCitations] = useState<string[]>(['']);
 
   const handleEditClick = (dataset: Dataset) => {
     setSelectedDataset(dataset);
-    onOpen();
+    setEditingCitations(dataset.recommendedCitations && dataset.recommendedCitations.length > 0 ? dataset.recommendedCitations : ['']);
+    onEditOpen();
+  };
+
+  const handleReviewClick = (dataset: Dataset) => {
+    setSelectedDataset(dataset);
+    onReviewOpen();
+  };
+
+  const addCitation = () => {
+    setEditingCitations([...editingCitations, '']);
+  };
+
+  const removeCitation = (index: number) => {
+    if (editingCitations.length > 1) {
+      setEditingCitations(editingCitations.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateCitation = (index: number, value: string) => {
+    const newCitations = [...editingCitations];
+    newCitations[index] = value;
+    setEditingCitations(newCitations);
   };
 
   const handleUpdateDataset = async () => {
@@ -111,7 +128,12 @@ const DatasetManagementPage: FC = () => {
     }
 
     try {
-      const { id, ...dataToUpdate } = selectedDataset;
+      const validCitations = editingCitations.filter(c => c.trim() !== '');
+      const { id, ...dataToUpdate } = {
+        ...selectedDataset,
+        recommendedCitations: validCitations
+      };
+
       const response = await fetch(`/api/admin/datasets/${id}`, {
         method: 'PUT',
         headers: {
@@ -125,28 +147,58 @@ const DatasetManagementPage: FC = () => {
         const errorData = await response.json();
         throw new Error(errorData.error || '更新失败');
       }
-      
-      setDatasets(prev => prev.map(d => d.id === id ? selectedDataset : d));
-      onOpenChange(); 
+
+      await fetchData();
+      onEditOpenChange();
     } catch (error: any) {
       console.error('Failed to update dataset:', error);
       alert(`更新失败: ${error.message}`);
     }
   };
 
+  const handleReview = async (action: 'approve' | 'reject') => {
+    if (!selectedDataset) return;
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
 
-  const fetchData = useCallback(() => {
+    try {
+      const response = await fetch(`/api/admin/datasets/${selectedDataset.id}/review`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || '审核操作失败');
+      }
+
+      await fetchData();
+      onReviewOpenChange();
+    } catch (err: any) {
+      alert(`审核失败: ${err.message}`);
+    }
+  };
+
+  const fetchData = useCallback(async () => {
     const token = localStorage.getItem('admin_token')
     if (!token) {
       router.push('/admin/login')
       return
     }
-    
+
     setLoading(true)
-    fetch('/api/admin/datasets?limit=10000', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(res => {
+    try {
+      const res = await fetch('/api/admin/datasets?limit=10000', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
       if (!res.ok) {
         if (res.status === 401) {
           localStorage.removeItem('admin_token')
@@ -154,18 +206,15 @@ const DatasetManagementPage: FC = () => {
         }
         throw new Error('获取数据失败')
       }
-      return res.json()
-    })
-    .then(data => {
+
+      const data = await res.json()
       setDatasets(data.datasets || [])
-    })
-    .catch(error => {
+    } catch (error) {
       console.error("获取数据集失败:", error)
       setDatasets([])
-    })
-    .finally(() => {
+    } finally {
       setLoading(false)
-    })
+    }
   }, [router])
 
   useEffect(() => {
@@ -176,15 +225,15 @@ const DatasetManagementPage: FC = () => {
     const token = localStorage.getItem('admin_token')
     if (!token) return router.push('/admin/login')
     if (!confirm('确定要删除这个数据集吗？此操作不可逆！')) return
-    
+
     setLoading(true)
     try {
-      const response = await fetch(`/api/admin/datasets/${id}`, { 
+      const response = await fetch(`/api/admin/datasets/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (response.ok) {
-        fetchData()
+        await fetchData()
       } else {
         const err = await response.json()
         alert(`删除失败: ${err.error || '未知错误'}`)
@@ -199,8 +248,7 @@ const DatasetManagementPage: FC = () => {
   const handleToggleVisibility = useCallback(async (dataset: Dataset) => {
     const token = localStorage.getItem('admin_token')
     if (!token) return router.push('/admin/login')
-    
-    setLoading(true)
+
     try {
       const response = await fetch(`/api/admin/datasets/${dataset.id}/status`, {
         method: 'PUT',
@@ -211,33 +259,31 @@ const DatasetManagementPage: FC = () => {
         body: JSON.stringify({ isVisible: !dataset.isVisible }),
       })
       if (response.ok) {
-        setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, isVisible: !d.isVisible, isReviewed: true} : d))
+        await fetchData()
       } else {
         const err = await response.json()
         alert(`切换可见性失败: ${err.error || '未知错误'}`)
       }
     } catch (err) {
       alert('切换可见性时发生网络错误')
-    } finally {
-      setLoading(false)
     }
-  }, [router])
+  }, [router, fetchData])
 
   const handleToggleFeatured = useCallback(async (dataset: Dataset) => {
     const token = localStorage.getItem('admin_token')
     if (!token) return router.push('/admin/login')
-    
+
     try {
       const response = await fetch(`/api/admin/datasets/${dataset.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ isFeatured: !dataset.isFeatured }),
       })
       if (response.ok) {
-        setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, isFeatured: !d.isFeatured} : d))
+        await fetchData()
       } else {
         const err = await response.json()
         alert(`切换精选状态失败: ${err.error || '未知错误'}`)
@@ -245,47 +291,56 @@ const DatasetManagementPage: FC = () => {
     } catch (err) {
       alert('切换精选状态时发生网络错误')
     }
-  }, [router])
+  }, [router, fetchData])
 
-  const handleToggleVisualization = useCallback(async (dataset: Dataset) => {
+  const handleTogglePreview = useCallback(async (dataset: Dataset) => {
     const token = localStorage.getItem('admin_token')
     if (!token) return router.push('/admin/login')
-    
+
+    console.log('Toggling preview for dataset:', dataset.id, 'Current state:', dataset.enablePreview, 'New state:', !dataset.enablePreview)
+
     try {
       const response = await fetch(`/api/admin/datasets/${dataset.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ enableVisualization: !dataset.enableVisualization }),
+        body: JSON.stringify({ enablePreview: !dataset.enablePreview }),
       })
+
+      console.log('Toggle preview response status:', response.status)
+
       if (response.ok) {
-        setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, enableVisualization: !d.enableVisualization} : d))
+        const result = await response.json()
+        console.log('Toggle preview success:', result)
+        await fetchData()
       } else {
         const err = await response.json()
-        alert(`切换可视化状态失败: ${err.error || '未知错误'}`)
+        console.error('Toggle preview failed:', err)
+        alert(`切换预览状态失败: ${err.error || '未知错误'}`)
       }
     } catch (err) {
-      alert('切换可视化状态时发生网络错误')
+      console.error('Toggle preview network error:', err)
+      alert('切换预览状态时发生网络错误')
     }
-  }, [router])
+  }, [router, fetchData])
 
-  const handleToggleAnalysis = useCallback(async (dataset: Dataset) => {
+  const handleToggleDataAnalysis = useCallback(async (dataset: Dataset) => {
     const token = localStorage.getItem('admin_token')
     if (!token) return router.push('/admin/login')
-    
+
     try {
       const response = await fetch(`/api/admin/datasets/${dataset.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ enableAnalysis: !dataset.enableAnalysis }),
+        body: JSON.stringify({ enableDataAnalysis: !dataset.enableDataAnalysis }),
       })
       if (response.ok) {
-        setDatasets(prev => prev.map(d => d.id === dataset.id ? {...d, enableAnalysis: !d.enableAnalysis} : d))
+        await fetchData()
       } else {
         const err = await response.json()
         alert(`切换数据分析状态失败: ${err.error || '未知错误'}`)
@@ -293,68 +348,63 @@ const DatasetManagementPage: FC = () => {
     } catch (err) {
       alert('切换数据分析状态时发生网络错误')
     }
-  }, [router])
+  }, [router, fetchData])
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN')
-  }
+  const filteredDatasets = useMemo(() => {
+    let filtered = [...datasets];
 
-  const formatFileSize = (bytes: number) => {
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    if (bytes === 0) return '0 B'
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
-  const getStatusBadge = (dataset: Dataset) => {
-    if (!dataset.isReviewed) {
-      return <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">待审核</span>
+    // 搜索过滤
+    if (searchTerm) {
+      filtered = filtered.filter(d =>
+        d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.catalog.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-    if (dataset.isVisible) {
-      return <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">已发布</span>
+
+    // 状态过滤
+    const statusFilterValue = Array.from(statusFilter)[0];
+    if (statusFilterValue && statusFilterValue !== "all") {
+      filtered = filtered.filter(d => {
+        const status = d.isReviewed ? (d.isVisible ? 'approved' : 'hidden') : 'pending';
+        return status === statusFilterValue;
+      });
     }
-    return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">已隐藏</span>
-  }
-  
-  const onSearchChange = useCallback((value: string) => {
-    if (value) {
-      setSearchTerm(value)
-      setPage(1)
-    } else {
-      setSearchTerm("")
+
+    // 排序
+    if (sortDescriptor.column) {
+      filtered.sort((a, b) => {
+        const first = a[sortDescriptor.column as keyof Dataset];
+        const second = b[sortDescriptor.column as keyof Dataset];
+        const cmp = first < second ? -1 : first > second ? 1 : 0;
+        return sortDescriptor.direction === "descending" ? -cmp : cmp;
+      });
     }
-  }, [])
-  
-  const onClear = useCallback(() => {
-    setSearchTerm("")
-    setPage(1)
-  }, [])
 
-  const hasSearchFilter = Boolean(searchTerm);
+    return filtered;
+  }, [datasets, searchTerm, statusFilter, sortDescriptor]);
 
-  const onRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRowsPerPage(Number(e.target.value));
-    setPage(1);
-  }, []);
-
-  const headerColumns = useMemo(() => {
-    const allColumns = [
-      {name: "ID", uid: "id"},
-      {name: "名称", uid: "name"},
-      {name: "分类", uid: "catalog"},
-      {name: "状态", uid: "status"},
-      {name: "上传时间", uid: "uploadTime"},
-      {name: "操作", uid: "actions"},
-    ];
-    return allColumns.filter((column) => visibleColumns.has(column.uid));
-  }, [visibleColumns]);
+  const pendingCount = datasets.filter(d => !d.isReviewed).length;
 
   const renderCell = useCallback((dataset: Dataset, columnKey: Key) => {
-    const cellValue = dataset[columnKey as keyof Dataset];
-
     switch (columnKey) {
       case "name":
-        return <p className="font-bold">{cellValue}</p>;
+        return (
+          <div className="flex flex-col gap-1">
+            <Link
+              href={`/datasets/${dataset.id}`}
+              target="_blank"
+              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+            >
+              {dataset.name}
+              <ExternalLinkIcon className="w-3 h-3" />
+            </Link>
+            {dataset.summary && (
+              <p className="text-xs text-gray-500 line-clamp-1">{dataset.summary}</p>
+            )}
+          </div>
+        );
+      case "catalog":
+        return <Chip size="sm" variant="flat" color="primary">{dataset.catalog}</Chip>;
       case "status":
         const currentStatus = dataset.isReviewed ? (dataset.isVisible ? 'approved' : 'hidden') : 'pending';
         return (
@@ -363,60 +413,84 @@ const DatasetManagementPage: FC = () => {
           </Chip>
         );
       case "uploadTime":
-        return new Date(cellValue as string).toLocaleDateString();
+        return (
+          <div className="flex flex-col text-sm">
+            <span>{new Date(dataset.uploadTime).toLocaleDateString('zh-CN')}</span>
+            <span className="text-xs text-gray-500">{dataset.uploadedBy}</span>
+          </div>
+        );
+      case "stats":
+        return (
+          <div className="flex flex-col text-xs text-gray-600">
+            <span>下载: {dataset.downloadCount}</span>
+          </div>
+        );
       case "actions":
         return (
-          <div className="relative flex items-center gap-1">
-            <Tooltip content="编辑数据集">
+          <div className="flex items-center gap-1 flex-wrap">
+            {!dataset.isReviewed && (
+              <Tooltip content="审核此数据集">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="flat"
+                  color="warning"
+                  onClick={() => handleReviewClick(dataset)}
+                >
+                  <CheckCircleIcon className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip content="编辑数据集详细信息">
               <Button isIconOnly size="sm" variant="light" onClick={() => handleEditClick(dataset)}>
                 <EditIcon className="w-4 h-4" />
               </Button>
             </Tooltip>
-            <Tooltip content={dataset.isVisible ? "隐藏数据集" : "显示数据集"}>
-              <Button 
-                isIconOnly 
-                size="sm" 
-                variant={dataset.isVisible ? "flat" : "light"} 
+            <Tooltip content={dataset.isVisible ? "隐藏数据集（用户不可见）" : "显示数据集（用户可见）"}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant={dataset.isVisible ? "flat" : "light"}
                 color={dataset.isVisible ? "success" : "default"}
                 onClick={() => handleToggleVisibility(dataset)}
               >
                 <EyeIcon className={`w-4 h-4 ${dataset.isVisible ? 'text-green-600' : 'text-gray-400'}`} />
               </Button>
             </Tooltip>
-            <Tooltip content={dataset.isFeatured ? "取消精选" : "设为精选"}>
-              <Button 
-                isIconOnly 
-                size="sm" 
-                variant={dataset.isFeatured ? "flat" : "light"} 
+            <Tooltip content={dataset.isFeatured ? "取消精选标记" : "标记为精选数据集"}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant={dataset.isFeatured ? "flat" : "light"}
                 color={dataset.isFeatured ? "warning" : "default"}
                 onClick={() => handleToggleFeatured(dataset)}
               >
                 <StarIcon className={`w-4 h-4 ${dataset.isFeatured ? 'text-yellow-500' : 'text-gray-400'}`} />
               </Button>
             </Tooltip>
-            <Tooltip content={dataset.enableVisualization ? "禁用可视化" : "启用可视化"}>
-              <Button 
-                isIconOnly 
-                size="sm" 
-                variant={dataset.enableVisualization ? "flat" : "light"} 
-                color={dataset.enableVisualization ? "secondary" : "default"}
-                onClick={() => handleToggleVisualization(dataset)}
+            <Tooltip content={dataset.enablePreview ? "禁用数据预览" : "启用数据预览"}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant={dataset.enablePreview ? "flat" : "light"}
+                color={dataset.enablePreview ? "primary" : "default"}
+                onClick={() => handleTogglePreview(dataset)}
               >
-                <BarChartIcon className={`w-4 h-4 ${dataset.enableVisualization ? 'text-purple-600' : 'text-gray-400'}`} />
+                <EyeIcon className={`w-4 h-4 ${dataset.enablePreview ? 'text-blue-600' : 'text-gray-400'}`} />
               </Button>
             </Tooltip>
-            <Tooltip content={dataset.enableAnalysis ? "禁用数据分析" : "启用数据分析"}>
-              <Button 
-                isIconOnly 
-                size="sm" 
-                variant={dataset.enableAnalysis ? "flat" : "light"} 
-                color={dataset.enableAnalysis ? "primary" : "default"}
-                onClick={() => handleToggleAnalysis(dataset)}
+            <Tooltip content={dataset.enableDataAnalysis ? "禁用数据分析" : "启用数据分析"}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant={dataset.enableDataAnalysis ? "flat" : "light"}
+                color={dataset.enableDataAnalysis ? "secondary" : "default"}
+                onClick={() => handleToggleDataAnalysis(dataset)}
               >
-                <PieChartIcon className={`w-4 h-4 ${dataset.enableAnalysis ? 'text-blue-600' : 'text-gray-400'}`} />
+                <PieChartIcon className={`w-4 h-4 ${dataset.enableDataAnalysis ? 'text-purple-600' : 'text-gray-400'}`} />
               </Button>
             </Tooltip>
-            <Tooltip color="danger" content="删除数据集">
+            <Tooltip color="danger" content="永久删除数据集">
               <Button isIconOnly size="sm" variant="light" color="danger" onClick={() => handleDelete(dataset.id)}>
                 <TrashIcon className="w-4 h-4" />
               </Button>
@@ -424,96 +498,131 @@ const DatasetManagementPage: FC = () => {
           </div>
         );
       default:
-        return cellValue;
+        return dataset[columnKey as keyof Dataset];
     }
-  }, [handleEditClick, handleToggleVisibility, handleToggleFeatured, handleToggleVisualization, handleToggleAnalysis, handleDelete]);
+  }, [handleEditClick, handleReviewClick, handleToggleVisibility, handleToggleFeatured, handleTogglePreview, handleToggleDataAnalysis, handleDelete]);
 
-  const topContent = useMemo(() => {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between gap-3 items-end">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%]"
-            placeholder="Search by name..."
-            startContent={<SearchIcon />}
-            value={searchTerm}
-            onClear={() => onClear()}
-            onValueChange={onSearchChange}
-          />
-          <div className="flex gap-3">
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat">
-                  Status
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={statusFilter}
-                selectionMode="single"
-                onSelectionChange={setStatusFilter}
-              >
-                {STATUS_OPTIONS.map((status) => (
-                  <DropdownItem key={status.uid} className="capitalize">
-                    {status.name}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-            
-          </div>
-        </div>
-      </div>
-    );
-  }, [
-    statusFilter,
-    visibleColumns,
-    onSearchChange,
-    onRowsPerPageChange,
-    datasets.length,
-    hasSearchFilter,
-  ]);
+  const columns = [
+    {name: "数据集名称", uid: "name"},
+    {name: "分类", uid: "catalog"},
+    {name: "状态", uid: "status"},
+    {name: "上传信息", uid: "uploadTime"},
+    {name: "统计", uid: "stats"},
+    {name: "操作", uid: "actions"},
+  ];
 
   return (
     <>
-      <div className="p-4 sm:p-8">
-          <CardHeader className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="p-4 sm:p-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <Link href="/admin/dashboard">
-              <Button variant="ghost" size="sm" isIconOnly>
+              <Button variant="light" size="sm" isIconOnly>
                 <ArrowLeftIcon className="h-5 w-5" />
               </Button>
             </Link>
-            <h2 className="text-xl font-bold">数据集管理</h2>
-          </CardHeader>
-          <CardContent>
-             <Table 
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">数据集管理</h1>
+              <p className="text-sm text-gray-500 mt-1">管理所有数据集，包括审核、编辑和发布</p>
+            </div>
+          </div>
+          {pendingCount > 0 && (
+            <Chip color="warning" variant="flat" size="lg">
+              {pendingCount} 个待审核
+            </Chip>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-500">总数据集</div>
+              <div className="text-2xl font-bold text-gray-900">{datasets.length}</div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-500">待审核</div>
+              <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-500">已上线</div>
+              <div className="text-2xl font-bold text-green-600">
+                {datasets.filter(d => d.isReviewed && d.isVisible).length}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-500">总下载量</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {datasets.reduce((sum, d) => sum + d.downloadCount, 0)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-3">
+          <Input
+            isClearable
+            className="flex-1"
+            placeholder="搜索数据集名称或分类..."
+            startContent={<SearchIcon className="w-4 h-4" />}
+            value={searchTerm}
+            onClear={() => setSearchTerm("")}
+            onValueChange={setSearchTerm}
+          />
+          <Dropdown>
+            <DropdownTrigger>
+              <Button variant="flat">
+                筛选状态
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              selectedKeys={statusFilter}
+              selectionMode="single"
+              onSelectionChange={setStatusFilter}
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <DropdownItem key={status.uid}>
+                  {status.name}
+                </DropdownItem>
+              ))}
+            </DropdownMenu>
+          </Dropdown>
+        </div>
+
+        {/* Table */}
+        <Card className="shadow-sm">
+          <CardContent className="p-0">
+            <Table
               aria-label="数据集管理列表"
-              isHeaderSticky
-              bottomContentPlacement="outside"
-              classNames={{
-                wrapper: "max-h-[500px]",
-                table: "min-w-[800px]",
-              }}
               sortDescriptor={sortDescriptor}
-              topContent={topContent}
-              topContentPlacement="outside"
               onSortChange={setSortDescriptor}
-             >
-              <TableHeader columns={headerColumns}>
+            >
+              <TableHeader columns={columns}>
                 {(column) => (
-                  <TableColumn 
-                    key={column.uid} 
+                  <TableColumn
+                    key={column.uid}
                     align={column.uid === "actions" ? "center" : "start"}
-                    width={column.uid === "actions" ? 300 : undefined}
+                    allowsSorting={column.uid === "uploadTime" || column.uid === "name"}
                   >
                     {column.name}
                   </TableColumn>
                 )}
               </TableHeader>
-              <TableBody emptyContent={"没有找到数据集"} items={datasets}>
+              <TableBody
+                emptyContent={"没有找到数据集"}
+                items={filteredDatasets}
+                isLoading={loading}
+                loadingContent={<Spinner label="加载中..." />}
+              >
                 {(item) => (
                   <TableRow key={item.id}>
                     {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
@@ -522,31 +631,60 @@ const DatasetManagementPage: FC = () => {
               </TableBody>
             </Table>
           </CardContent>
+        </Card>
       </div>
 
-      <Modal 
-        isOpen={isOpen} 
-        onOpenChange={onOpenChange}
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditOpen}
+        onOpenChange={onEditOpenChange}
         size="2xl"
         scrollBehavior="inside"
       >
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader className="flex flex-col gap-1">编辑数据集</ModalHeader>
+              <ModalHeader className="flex flex-col gap-1">
+                <h3 className="text-xl font-bold">编辑数据集</h3>
+                <p className="text-sm font-normal text-gray-500">修改数据集的详细信息</p>
+              </ModalHeader>
               <ModalBody>
                 {selectedDataset && (
                   <div className="space-y-4">
                     <Input
                       label="数据集名称"
+                      placeholder="输入数据集名称"
                       value={selectedDataset.name}
                       onChange={(e) => setSelectedDataset({...selectedDataset, name: e.target.value})}
+                      isRequired
                     />
-                     <Textarea
-                      label="数据集描述"
-                      placeholder="详细描述数据集的内容、结构、变量等"
+                    <Select
+                      label="数据集分类"
+                      placeholder="选择分类"
+                      selectedKeys={[selectedDataset.catalog]}
+                      onChange={(e) => setSelectedDataset({...selectedDataset, catalog: e.target.value})}
+                      isRequired
+                    >
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                    <Input
+                      label="简述"
+                      placeholder="简要描述（最多30字）"
+                      value={selectedDataset.summary || ''}
+                      onChange={(e) => setSelectedDataset({...selectedDataset, summary: e.target.value})}
+                      maxLength={30}
+                    />
+                    <Textarea
+                      label="详细描述"
+                      placeholder="详细描述数据集的内容、结构、变量等（支持Markdown）"
                       value={selectedDataset.description}
                       onChange={(e) => setSelectedDataset({...selectedDataset, description: e.target.value})}
+                      minRows={4}
+                      isRequired
                     />
                     <Input
                       label="数据来源"
@@ -555,27 +693,145 @@ const DatasetManagementPage: FC = () => {
                       onChange={(e) => setSelectedDataset({...selectedDataset, source: e.target.value})}
                     />
                     <Input
-                      label="来源地址"
-                      placeholder="http://example.com/data"
+                      label="来源URL"
+                      placeholder="https://example.com/data"
                       value={selectedDataset.sourceUrl || ''}
                       onChange={(e) => setSelectedDataset({...selectedDataset, sourceUrl: e.target.value})}
+                      type="url"
                     />
                     <Input
-                      label="获取时间"
+                      label="数据获取日期"
                       type="date"
-                      placeholder="选择获取数据的日期"
                       value={selectedDataset.sourceDate ? new Date(selectedDataset.sourceDate).toISOString().split('T')[0] : ''}
                       onChange={(e) => setSelectedDataset({...selectedDataset, sourceDate: e.target.value})}
                     />
+
+                    {/* Citations */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">推荐引用文献</label>
+                        <Button size="sm" color="primary" variant="flat" onClick={addCitation}>
+                          + 添加引用
+                        </Button>
+                      </div>
+                      {editingCitations.map((citation, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Textarea
+                            value={citation}
+                            onChange={(e) => updateCitation(index, e.target.value)}
+                            placeholder="例如：张三, 李四. 数据集名称[J]. 期刊名, 年份, 卷(期): 页码."
+                            minRows={2}
+                          />
+                          {editingCitations.length > 1 && (
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              color="danger"
+                              variant="light"
+                              onClick={() => removeCitation(index)}
+                            >
+                              <XCircleIcon className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </ModalBody>
               <ModalFooter>
-                <Button variant="light" onClick={onClose}>
+                <Button variant="light" onPress={onClose}>
                   取消
                 </Button>
-                <Button color="primary" onClick={handleUpdateDataset}>
-                  保存
+                <Button color="primary" onPress={handleUpdateDataset}>
+                  保存更改
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Review Modal */}
+      <Modal
+        isOpen={isReviewOpen}
+        onOpenChange={onReviewOpenChange}
+        size="2xl"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>审核数据集</ModalHeader>
+              <ModalBody>
+                {selectedDataset && (
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">{selectedDataset.name}</h3>
+                        <Chip size="sm" color="primary" variant="flat" className="mt-2">
+                          {selectedDataset.catalog}
+                        </Chip>
+                      </div>
+                      <Button
+                        as={Link}
+                        href={`/datasets/${selectedDataset.id}`}
+                        target="_blank"
+                        size="sm"
+                        color="primary"
+                        variant="flat"
+                        startContent={<ExternalLinkIcon className="w-4 h-4" />}
+                      >
+                        查看完整详情
+                      </Button>
+                    </div>
+                    {selectedDataset.summary && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">简述</p>
+                        <p className="text-sm text-gray-600">{selectedDataset.summary}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">详细描述</p>
+                      <p className="text-sm text-gray-600 line-clamp-3">{selectedDataset.description}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="font-medium text-gray-700">上传者</p>
+                        <p className="text-gray-600">{selectedDataset.uploadedBy}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">上传时间</p>
+                        <p className="text-gray-600">{new Date(selectedDataset.uploadTime).toLocaleString('zh-CN')}</p>
+                      </div>
+                    </div>
+                    <Alert>
+                      <AlertDescription>
+                        💡 点击上方"查看完整详情"按钮可在新标签页中查看数据集的完整信息，包括文件列表、详细描述等。<br/><br/>
+                        <strong>批准</strong>后数据集将自动上线并对用户可见。<br/>
+                        <strong>拒绝</strong>将标记为已审核但隐藏，管理员可稍后手动上线。
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  取消
+                </Button>
+                <Button
+                  color="danger"
+                  variant="flat"
+                  startContent={<XCircleIcon className="w-4 h-4" />}
+                  onPress={() => handleReview('reject')}
+                >
+                  拒绝
+                </Button>
+                <Button
+                  color="success"
+                  startContent={<CheckCircleIcon className="w-4 h-4" />}
+                  onPress={() => handleReview('approve')}
+                >
+                  批准上线
                 </Button>
               </ModalFooter>
             </>
@@ -586,4 +842,4 @@ const DatasetManagementPage: FC = () => {
   )
 };
 
-export default DatasetManagementPage; 
+export default DatasetManagementPage;

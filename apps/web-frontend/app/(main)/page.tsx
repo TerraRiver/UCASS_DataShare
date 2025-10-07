@@ -40,34 +40,48 @@ export default function Home() {
 					</h1>
 				</div>
 
-				<div className="flex gap-3">
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl mt-8">
 					<Button
 						as={Link}
 						href={'/discover'}
 						color="primary"
-						variant="solid"
+						variant="shadow"
 						size="lg"
-						className="px-8 py-4 text-lg"
+						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
+						startContent={<Layers3 size={24} />}
 					>
-						浏览数据集
+						浏览所有数据集
+					</Button>
+					<Button
+						as={Link}
+						href={'/casestudies'}
+						color="primary"
+						variant="shadow"
+						size="lg"
+						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
+						startContent={<BookCopy size={24} />}
+					>
+						浏览所有案例集
 					</Button>
 					<Button
 						as={Link}
 						href={'/upload'}
 						color="primary"
-						variant="ghost"
+						variant="shadow"
 						size="lg"
-						className="px-8 py-4 text-lg"
+						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
+						startContent={<FileUp size={24} />}
 					>
 						上传数据集
 					</Button>
 					<Button
 						as={Link}
 						href={'/upload-casestudy'}
-						color="secondary"
-						variant="solid"
+						color="primary"
+						variant="shadow"
 						size="lg"
-						className="px-8 py-4 text-lg"
+						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
+						startContent={<FileUp size={24} />}
 					>
 						上传案例集
 					</Button>

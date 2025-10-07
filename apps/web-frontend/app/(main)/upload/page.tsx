@@ -45,6 +45,7 @@ export default function UploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [showResultDialog, setShowResultDialog] = useState(false)
+  const [citations, setCitations] = useState<string[]>([''])
 
   const {
     register,
@@ -58,44 +59,61 @@ export default function UploadPage() {
   // 处理文件选择
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(event.target.files || [])
-    
+
     // 合并新文件和已选择的文件
     const allFiles = [...selectedFiles, ...newFiles]
-    
+
     // 限制文件数量不超过10个
     if (allFiles.length > 10) {
       alert(`最多只能选择10个文件，当前已选择${selectedFiles.length}个文件，最多还能选择${10 - selectedFiles.length}个文件`)
       event.target.value = '' // 清空文件选择
       return
     }
-    
+
     // 检查重复文件名
     const duplicateFiles: string[] = []
     const uniqueFiles: File[] = []
-    
+
     newFiles.forEach(newFile => {
-      const isDuplicate = selectedFiles.some(existingFile => 
+      const isDuplicate = selectedFiles.some(existingFile =>
         existingFile.name === newFile.name && existingFile.size === newFile.size
       )
-      
+
       if (isDuplicate) {
         duplicateFiles.push(newFile.name)
       } else {
         uniqueFiles.push(newFile)
       }
     })
-    
+
     // 如果有重复文件，提醒用户
     if (duplicateFiles.length > 0) {
       alert(`以下文件已存在，将跳过：\n${duplicateFiles.join('\n')}`)
     }
-    
+
     // 更新文件列表（只添加不重复的文件）
     const finalFiles = [...selectedFiles, ...uniqueFiles]
     setSelectedFiles(finalFiles)
-    
+
     // 清空input值，以便可以重新选择相同文件
     event.target.value = ''
+  }
+
+  // 处理引用文献
+  const addCitation = () => {
+    setCitations([...citations, ''])
+  }
+
+  const removeCitation = (index: number) => {
+    if (citations.length > 1) {
+      setCitations(citations.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateCitation = (index: number, value: string) => {
+    const newCitations = [...citations]
+    newCitations[index] = value
+    setCitations(newCitations)
   }
 
   // 拖拽处理
@@ -206,7 +224,13 @@ export default function UploadPage() {
       if (data.sourceDate) {
         formData.append('sourceDate', data.sourceDate)
       }
-      
+
+      // 添加推荐引用文献（过滤空值）
+      const validCitations = citations.filter(c => c.trim() !== '')
+      if (validCitations.length > 0) {
+        formData.append('recommendedCitations', JSON.stringify(validCitations))
+      }
+
       // 添加选中的文件
       selectedFiles.forEach(file => {
         formData.append('files', file)
@@ -223,6 +247,7 @@ export default function UploadPage() {
         setUploadResult({ success: true, message: result.message })
         reset()
         setSelectedFiles([]) // 清空文件列表
+        setCitations(['']) // 重置引用文献
       } else {
         setUploadResult({ success: false, message: result.error || '上传失败' })
       }
@@ -369,7 +394,7 @@ export default function UploadPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                  详细描述 <span className="text-red-500">*</span>
+                  详细描述（Markdown格式文本） <span className="text-red-500">*</span>
                 </Label>
                 <Textarea 
                   id="description" 
@@ -457,6 +482,67 @@ export default function UploadPage() {
             </CardContent>
           </Card>
 
+          {/* Recommended Citations Section */}
+          <Card className="shadow-lg border-0">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b">
+              <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                推荐引用文献
+              </CardTitle>
+              <CardDescription>
+                使用本数据集时推荐引用的文献（国标格式），可选填写。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {citations.map((citation, index) => (
+                <div key={index} className="flex gap-2">
+                  <div className="flex-1">
+                    <Textarea
+                      value={citation}
+                      onChange={(e) => updateCitation(index, e.target.value)}
+                      placeholder="例如：张三, 李四. 数据集名称[J]. 期刊名, 年份, 卷(期): 页码."
+                      rows={2}
+                      className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {index === citations.length - 1 && (
+                      <Button
+                        type="button"
+                        onClick={addCitation}
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-300"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </Button>
+                    )}
+                    {citations.length > 1 && (
+                      <Button
+                        type="button"
+                        onClick={() => removeCitation(index)}
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-gray-500 mt-2">
+                💡 提示：请按照国标格式填写文献引用，可添加多条引用文献
+              </p>
+            </CardContent>
+          </Card>
+
           {/* File Upload Section */}
           <Card className="shadow-lg border-0">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
@@ -467,7 +553,7 @@ export default function UploadPage() {
                 文件上传
               </CardTitle>
               <CardDescription>
-                支持多种文件格式，单次最多上传10个文件。建议上传CSV、Excel、JSON等常见数据格式。
+                支持任意文件格式，单次最多上传10个文件，单文件最大1GB。
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
@@ -502,18 +588,17 @@ export default function UploadPage() {
                             multiple
                             onChange={handleFileChange}
                             className="hidden"
-                            accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.zip,.rar,.7z,.py,.r,.doc,.docx"
                           />
                         </label>
                       </p>
                     </div>
                     <div className="mt-4 flex justify-center">
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <span>支持格式：CSV, Excel, JSON, PDF 等</span>
+                        <span>支持任意格式文件</span>
                         <span>•</span>
                         <span>最多10个文件</span>
                         <span>•</span>
-                        <span>单文件最大100MB</span>
+                        <span>单文件最大1GB</span>
                       </div>
                     </div>
                   </div>

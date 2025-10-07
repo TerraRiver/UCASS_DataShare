@@ -121,8 +121,7 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           isReviewed: true,
           isVisible: true,
           isFeatured: true,
-          enableVisualization: true,
-          enableAnalysis: true,
+          enableDataAnalysis: true,
           enablePreview: true,
           downloadCount: true,
           _count: {
@@ -241,15 +240,14 @@ router.put('/datasets/:datasetId/files/:fileId', async (req: AuthenticatedReques
 router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { isReviewed, isVisible, isFeatured, enableVisualization, enableAnalysis, enablePreview } = req.body;
+    const { isReviewed, isVisible, isFeatured, enableDataAnalysis, enablePreview } = req.body;
 
     // 构建要更新的数据对象，只包含请求中提供的字段
     const dataToUpdate: Record<string, boolean> = {};
     if (isReviewed !== undefined) dataToUpdate.isReviewed = isReviewed;
     if (isVisible !== undefined) dataToUpdate.isVisible = isVisible;
     if (isFeatured !== undefined) dataToUpdate.isFeatured = isFeatured;
-    if (enableVisualization !== undefined) dataToUpdate.enableVisualization = enableVisualization;
-    if (enableAnalysis !== undefined) dataToUpdate.enableAnalysis = enableAnalysis;
+    if (enableDataAnalysis !== undefined) dataToUpdate.enableDataAnalysis = enableDataAnalysis;
     if (enablePreview !== undefined) dataToUpdate.enablePreview = enablePreview;
 
     if (Object.keys(dataToUpdate).length === 0) {
@@ -268,37 +266,82 @@ router.put('/datasets/:id/status', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// 审核数据集
+router.put('/datasets/:id/review', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ error: '无效的审核操作' });
+    }
+
+    const dataToUpdate: any = {
+      isReviewed: true,
+    };
+
+    // 批准：设置为已审核且可见
+    // 拒绝：设置为已审核但不可见
+    if (action === 'approve') {
+      dataToUpdate.isVisible = true;
+    } else {
+      dataToUpdate.isVisible = false;
+    }
+
+    const updatedDataset = await prisma.dataset.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({
+      message: action === 'approve' ? '数据集已批准上线' : '数据集已拒绝',
+      dataset: updatedDataset
+    });
+  } catch (error) {
+    console.error('审核数据集错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // [新增] 更新数据集元数据
 router.put('/datasets/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { 
-      name, 
-      description, 
-      catalog, 
-      source, 
-      sourceUrl, 
+    const {
+      name,
+      description,
+      summary,
+      catalog,
+      source,
+      sourceUrl,
       sourceDate,
+      recommendedCitations,
       isFeatured,
-      enableVisualization,
-      enableAnalysis
+      enableDataAnalysis,
+      enablePreview
     } = req.body;
+
+    console.log('Update dataset request:', { id, enablePreview, isFeatured, enableDataAnalysis });
 
     // 构建要更新的数据对象
     const dataToUpdate: any = {};
     if (name) dataToUpdate.name = name;
     if (description) dataToUpdate.description = description;
+    if (summary !== undefined) dataToUpdate.summary = summary;
     if (catalog) dataToUpdate.catalog = catalog;
     if (source) dataToUpdate.source = source;
     // 允许传入 null 或空字符串来清空可选字段
-    if (sourceUrl !== undefined) dataToUpdate.sourceUrl = sourceUrl; 
+    if (sourceUrl !== undefined) dataToUpdate.sourceUrl = sourceUrl;
     if (sourceDate !== undefined) {
       dataToUpdate.sourceDate = sourceDate ? new Date(sourceDate) : null;
     }
+    if (recommendedCitations !== undefined) dataToUpdate.recommendedCitations = recommendedCitations;
     // 新增状态字段支持
     if (typeof isFeatured === 'boolean') dataToUpdate.isFeatured = isFeatured;
-    if (typeof enableVisualization === 'boolean') dataToUpdate.enableVisualization = enableVisualization;
-    if (typeof enableAnalysis === 'boolean') dataToUpdate.enableAnalysis = enableAnalysis;
+    if (typeof enableDataAnalysis === 'boolean') dataToUpdate.enableDataAnalysis = enableDataAnalysis;
+    if (typeof enablePreview === 'boolean') dataToUpdate.enablePreview = enablePreview;
+
+    console.log('Data to update:', dataToUpdate);
 
     if (Object.keys(dataToUpdate).length === 0) {
       return res.status(400).json({ error: '没有提供任何要更新的数据' });

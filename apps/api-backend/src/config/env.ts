@@ -9,7 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string(),
   JWT_SECRET: z.string(),
   UPLOAD_DIR: z.string().default('./uploads'),
-  MAX_FILE_SIZE: z.coerce.number().default(10737418240), // 10GB
+  MAX_FILE_SIZE: z.coerce.number().default(1073741824), // 1GB
   ADMIN_USERNAME: z.string().default('admin'),
   ADMIN_PASSWORD: z.string().default('admin123'),
 });

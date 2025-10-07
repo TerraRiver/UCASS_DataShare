@@ -133,7 +133,7 @@ export default function UploadCaseStudyPage() {
                   {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="author">作者*</Label>
+                  <Label htmlFor="author">作者（不同作者间用英文分号作为间隔）*</Label>
                   <Input id="author" {...register('author')} />
                   {errors.author && <p className="text-red-500 text-sm mt-1">{errors.author.message}</p>}
                 </div>

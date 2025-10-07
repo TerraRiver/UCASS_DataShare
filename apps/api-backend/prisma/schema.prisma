@@ -25,10 +25,11 @@ model Dataset {
   name                 String
   catalog              String
   description          String
-  summary              String?  
+  summary              String?
   source               String
   sourceUrl            String?  @map("source_url")
   sourceDate           DateTime? @map("source_date")
+  recommendedCitations String[] @default([]) @map("recommended_citations")
   enablePreview        Boolean  @default(false) @map("enable_preview")
   uploadedBy           String?  @map("uploaded_by")
   uploadTime           DateTime @default(now()) @map("upload_time")
@@ -36,10 +37,9 @@ model Dataset {
   isReviewed           Boolean  @default(false) @map("is_reviewed")
   isVisible            Boolean  @default(false) @map("is_visible")
   isFeatured           Boolean  @default(false)
-  enableVisualization  Boolean  @default(false) @map("enable_visualization")
-  enableAnalysis       Boolean  @default(false) @map("enable_analysis")
+  enableDataAnalysis   Boolean  @default(false) @map("enable_data_analysis")
   downloadCount        Int      @default(0) @map("download_count")
-  
+
   files                DatasetFile[]
 
   @@map("datasets")

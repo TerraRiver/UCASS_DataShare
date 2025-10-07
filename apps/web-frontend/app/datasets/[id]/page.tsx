@@ -43,12 +43,12 @@ interface Dataset {
   description: string
   uploadTime: string
   downloadCount: number
-  enableVisualization: boolean
-  enableAnalysis: boolean
+  enableDataAnalysis: boolean
   enablePreview: boolean
   isReviewed: boolean
   isVisible: boolean
   isFeatured: boolean
+  recommendedCitations?: string[]
   files: DatasetFile[]
 }
 
@@ -70,6 +70,7 @@ export default function DatasetDetailPage() {
     { id: 'main-info', title: '基本信息' },
     { id: 'file-list', title: '文件列表' },
     { id: 'dataset-description', title: '数据集描述' },
+    { id: 'recommended-citations', title: '推荐引用文献' },
     { id: 'data-preview', title: '数据预览' },
   ];
 
@@ -101,7 +102,14 @@ export default function DatasetDetailPage() {
 
   const fetchDataset = async (id: string) => {
     try {
-      const response = await fetch(`/api/datasets/${id}`)
+      // 尝试获取管理员token，如果有则添加到请求头
+      const token = localStorage.getItem('admin_token');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/datasets/${id}`, { headers })
       const data = await response.json()
 
       if (response.ok) {
@@ -405,7 +413,10 @@ export default function DatasetDetailPage() {
                       <CardTitle className="text-xl font-semibold text-gray-900">数据集描述</CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <div className="prose prose-gray max-w-none">
+                      <div className="prose prose-slate prose-headings:font-bold prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg max-w-none
+                        prose-code:text-sm prose-code:bg-gray-100 prose-code:text-gray-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                        prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
+                        [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-gray-100">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {dataset.description}
                         </ReactMarkdown>
@@ -414,8 +425,41 @@ export default function DatasetDetailPage() {
                   </Card>
                 </section>
 
+                {/* Recommended Citations Section */}
+                {dataset.recommendedCitations && dataset.recommendedCitations.length > 0 && (
+                  <section id="recommended-citations" className="scroll-mt-20">
+                    <Card className="shadow-sm border border-gray-200">
+                      <CardHeader className="bg-amber-50/50 border-b border-amber-100">
+                        <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          推荐引用文献
+                        </CardTitle>
+                        <p className="text-sm text-gray-600 mt-2">
+                          使用本数据集时，推荐引用以下文献（国标格式）：
+                        </p>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <ol className="space-y-4">
+                          {dataset.recommendedCitations.map((citation, index) => (
+                            <li key={index} className="flex gap-3">
+                              <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-sm font-medium">
+                                {index + 1}
+                              </span>
+                              <div className="flex-1">
+                                <p className="text-gray-800 leading-relaxed">{citation}</p>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      </CardContent>
+                    </Card>
+                  </section>
+                )}
+
                 {/* Data Preview Section */}
-                {dataset.enablePreview && (
+                {dataset.enablePreview && dataset.files.some(f => f.isPreviewable) && (
                   <section id="data-preview" className="scroll-mt-20">
                     <Card className="shadow-sm border border-gray-200">
                       <CardHeader className="bg-gray-50/50">
@@ -475,9 +519,7 @@ export default function DatasetDetailPage() {
                           </div>
                         ) : (
                           <div className="text-center py-8 text-gray-500">
-                            {dataset.files.some(f => f.isPreviewable)
-                              ? '请选择一个文件以查看预览。'
-                              : '该数据集没有可预览的文件。'}
+                            请选择一个文件以查看预览。
                           </div>
                         )}
                       </CardContent>
@@ -533,7 +575,7 @@ export default function DatasetDetailPage() {
                   <CardContent className="p-2">
                     <nav className="space-y-1">
                       {sections.map((section, index) => {
-                        const isVisible = !(section.id === 'data-preview' && !dataset.enablePreview);
+                        const isVisible = !(section.id === 'data-preview' && (!dataset.enablePreview || !dataset.files.some(f => f.isPreviewable)));
                         if (!isVisible) return null;
                         
                         // 为每个导航项添加不同的图标
@@ -634,12 +676,8 @@ export default function DatasetDetailPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">可视化</span>
-                      <span className="text-sm font-medium">{dataset.enableVisualization ? '支持' : '不支持'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">分析功能</span>
-                      <span className="text-sm font-medium">{dataset.enableAnalysis ? '支持' : '不支持'}</span>
+                      <span className="text-sm text-gray-600">数据分析</span>
+                      <span className="text-sm font-medium">{dataset.enableDataAnalysis ? '支持' : '不支持'}</span>
                     </div>
                   </CardContent>
                 </Card>

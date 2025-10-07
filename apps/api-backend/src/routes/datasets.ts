@@ -3,6 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
+import * as XLSX from 'xlsx';
+import pdf from 'pdf-parse';
 import { prisma } from '@/config/database';
 import { ENV } from '@/config/env';
 import { requireAdmin, optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
@@ -27,21 +29,6 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: ENV.MAX_FILE_SIZE },
-  fileFilter: (req, file, cb) => {
-    // 允许的文件类型
-    const allowedTypes = [
-      '.csv', '.xlsx', '.xls', '.json', '.txt', '.pdf', '.doc', '.docx', 
-      '.sav', '.spss', '.dta', '.stata', '.R', '.py',
-      '.zip', '.rar', '.7z', '.tar', '.gz'  // 添加压缩包格式
-    ];
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    
-    if (allowedTypes.includes(fileExt)) {
-      cb(null, true);
-    } else {
-      cb(new Error('不支持的文件类型'));
-    }
-  },
 });
 
 // 上传数据集 (支持多文件)
@@ -57,7 +44,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
       file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     });
 
-    const { name, catalog, summary, description, source, sourceUrl, sourceDate } = req.body;
+    const { name, catalog, summary, description, source, sourceUrl, sourceDate, recommendedCitations } = req.body;
 
     if (!name || !catalog || !description || !source) {
       return res.status(400).json({ error: '数据集名称、分类、描述和来源不能为空' });
@@ -66,6 +53,20 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     // 验证简述长度
     if (summary && summary.length > 30) {
       return res.status(400).json({ error: '数据集简述不能超过30个字符' });
+    }
+
+    // 解析推荐引用文献
+    let citationsArray: string[] = [];
+    if (recommendedCitations) {
+      try {
+        citationsArray = JSON.parse(recommendedCitations);
+        if (!Array.isArray(citationsArray)) {
+          citationsArray = [];
+        }
+      } catch (e) {
+        console.warn('解析recommendedCitations失败:', e);
+        citationsArray = [];
+      }
     }
 
     // 计算总文件大小
@@ -81,16 +82,24 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         source,
         sourceUrl: sourceUrl || null,
         sourceDate: sourceDate ? new Date(sourceDate) : null,
+        recommendedCitations: citationsArray,
         uploadedBy: req.body.uploadedBy || 'anonymous', // 暂时使用匿名用户
         files: {
-          create: files.map(file => ({
-            filename: file.filename,
-            originalName: file.originalname,
-            filePath: file.path,
-            fileSize: file.size,
-            fileType: path.extname(file.originalname),
-            mimeType: file.mimetype,
-          }))
+          create: files.map(file => {
+            const fileExt = path.extname(file.originalname).toLowerCase();
+            // 设置可预览的文件类型
+            const isPreviewable = ['.csv', '.txt', '.md', '.pdf', '.dta', '.xls', '.xlsx'].includes(fileExt);
+
+            return {
+              filename: file.filename,
+              originalName: file.originalname,
+              filePath: file.path,
+              fileSize: file.size,
+              fileType: fileExt,
+              mimeType: file.mimetype,
+              isPreviewable,
+            };
+          })
         }
       },
       include: {
@@ -148,8 +157,7 @@ router.get('/public', async (req, res) => {
         sourceUrl: true,
         uploadTime: true,
         downloadCount: true,
-        enableVisualization: true,
-        enableAnalysis: true,
+        enableDataAnalysis: true,
         enablePreview: true,
         isFeatured: true,
         files: {
@@ -331,29 +339,6 @@ router.get('/:id/preview/:fileId', async (req: AuthenticatedRequest, res) => {
   try {
     const { id, fileId } = req.params;
 
-    const dataset = await prisma.dataset.findUnique({
-      where: { id },
-      select: { 
-        enablePreview: true,
-        isReviewed: true,
-        isVisible: true
-      },
-    });
-
-    if (!dataset) {
-      return res.status(404).json({ error: '数据集不存在' });
-    }
-
-    if (!dataset.isReviewed || !dataset.isVisible) {
-      if (!req.adminUser) {
-         return res.status(403).json({ error: '数据集当前不可访问' });
-      }
-    }
-
-    if (!dataset.enablePreview) {
-      return res.status(403).json({ error: '此数据集未启用预览' });
-    }
-
     const file = await prisma.datasetFile.findUnique({
       where: { id: fileId }
     });
@@ -367,28 +352,65 @@ router.get('/:id/preview/:fileId', async (req: AuthenticatedRequest, res) => {
       return res.status(404).json({ error: '文件在服务器上不存在' });
     }
 
-    if (file.fileType.toLowerCase() !== '.csv') {
-      return res.status(400).json({ error: '当前仅支持 CSV 文件预览' });
-    }
-    
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const lines = fileContent.split('\n').slice(0, 51); // Header + 50 rows
-    
-    const header = lines[0].split(',').map(h => h.trim());
-    const data = lines.slice(1).filter(line => line.trim()).map(line => {
-      const values = line.split(',');
-      return header.reduce((obj, key, index) => {
-        obj[key] = values[index] ? values[index].trim() : '';
-        return obj;
-      }, {} as Record<string, string>);
-    });
+    const fileExt = file.fileType.toLowerCase();
 
-    res.json({
-      preview: {
-        headers: header,
-        rows: data
+    // 处理 CSV 文件
+    if (fileExt === '.csv') {
+      const fileContent = fs.readFileSync(filePath, 'utf-8');
+      const lines = fileContent.split('\n').slice(0, 51); // Header + 50 rows
+
+      const header = lines[0].split(',').map(h => h.trim());
+      const data = lines.slice(1).filter(line => line.trim()).map(line => {
+        const values = line.split(',');
+        return header.reduce((obj, key, index) => {
+          obj[key] = values[index] ? values[index].trim() : '';
+          return obj;
+        }, {} as Record<string, string>);
+      });
+
+      return res.json({
+        preview: {
+          headers: header,
+          rows: data
+        }
+      });
+    }
+
+    // 处理 Excel 文件 (.xlsx, .xls)
+    if (fileExt === '.xlsx' || fileExt === '.xls') {
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0]; // 读取第一个工作表
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      if (jsonData.length === 0) {
+        return res.status(400).json({ error: '文件为空' });
       }
-    });
+
+      const headers = jsonData[0].map((h: any) => String(h || ''));
+      const rows = jsonData.slice(1, 51).map(row => { // 最多50行
+        return headers.reduce((obj, key, index) => {
+          obj[key] = row[index] !== undefined ? String(row[index]) : '';
+          return obj;
+        }, {} as Record<string, string>);
+      });
+
+      return res.json({
+        preview: {
+          headers,
+          rows
+        }
+      });
+    }
+
+    // 处理 Stata 文件 (.dta)
+    if (fileExt === '.dta') {
+      // Stata文件需要专门的库来解析,这里暂时返回不支持的提示
+      // 可以考虑使用 stata-js 或者其他库来实现
+      return res.status(400).json({ error: 'Stata .dta 文件预览功能正在开发中,请下载后使用专业软件查看' });
+    }
+
+    return res.status(400).json({ error: '不支持的文件类型' });
 
   } catch (error) {
     console.error('获取数据预览错误:', error);

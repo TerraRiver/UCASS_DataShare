@@ -119,29 +119,7 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
       
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {/* 待审核区域 */}
-        <Card className="shadow-lg">
-           <CardHeader className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <AlertTriangleIcon className="w-6 h-6 text-yellow-500" />
-                <h2 className="text-xl font-semibold">待审核任务</h2>
-              </div>
-              <Button as={Link} href="/admin/review" color="primary">
-                进入审核页面
-              </Button>
-           </CardHeader>
-           <Divider/>
-           <CardBody>
-              <p>
-                当前有 <span className="font-bold text-yellow-600">{stats.pendingDatasets}</span> 个数据集正在等待您的审核。
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                请前往专门的审核页面处理这些请求。
-              </p>
-           </CardBody>
-        </Card>
-
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* 数据集管理区域 */}
         <Card className="shadow-lg">
             <CardHeader className="flex justify-between items-center">
@@ -156,10 +134,11 @@ export default function AdminDashboard() {
             <Divider/>
             <CardBody>
               <p>
-                管理平台上的所有数据集，包括查看、编辑、设置可见性或删除。
+                管理平台上的所有数据集，包括审核、编辑、设置可见性或删除。
               </p>
               <p className="text-sm text-gray-500 mt-2">
-                共 <span className="font-bold text-blue-600">{stats.totalDatasets}</span> 个数据集。
+                共 <span className="font-bold text-blue-600">{stats.totalDatasets}</span> 个数据集，
+                <span className="font-bold text-yellow-600">{stats.pendingDatasets}</span> 个待审核。
               </p>
             </CardBody>
         </Card>

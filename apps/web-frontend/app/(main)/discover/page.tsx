@@ -24,8 +24,7 @@ interface Dataset {
   fileSize: number;
   uploadTime: string;
   downloadCount: number;
-  enableVisualization: boolean;
-  enableAnalysis: boolean;
+  enableDataAnalysis: boolean;
   enablePreview: boolean;
   isFeatured: boolean;
 }

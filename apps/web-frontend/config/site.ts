@@ -9,37 +9,37 @@ export const siteConfig = {
 			href: "/",
 		},
     {
-      label: "数据发现",
+      label: "浏览所有数据集",
       href: "/discover",
     },
     {
-      label: "案例集中心",
+      label: "浏览所有案例集",
       href: "/casestudies",
     },
     {
-      label: "数据上传",
+      label: "上传数据集",
       href: "/upload",
     },
     {
-      label: "案例集上传",
+      label: "上传案例集",
       href: "/upload-casestudy",
     }
  ],
  navMenuItems: [
   {
-   label: "数据发现",
+   label: "浏览所有数据集",
 			href: "/discover",
 		},
 			 {
-			   label: "案例集中心",
+			   label: "浏览所有案例集",
 			   href: "/casestudies",
 			 },
 		{
-			label: "数据上传",
+			label: "上传数据集",
 			href: "/upload",
 		},
 			 {
-			   label: "案例集上传",
+			   label: "上传案例集",
 			   href: "/upload-casestudy",
 			 },
 		{
