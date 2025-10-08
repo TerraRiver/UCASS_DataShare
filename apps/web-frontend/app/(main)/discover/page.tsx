@@ -8,8 +8,6 @@ import {
   Chip, ScrollShadow, Listbox, ListboxItem
 } from "@nextui-org/react";
 import { ArrowLeftIcon, SearchIcon, DownloadIcon, CalendarIcon, FolderIcon, StarIcon, LinkIcon, Building2Icon } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
 // 数据集类型定义
 interface Dataset {
@@ -17,7 +15,6 @@ interface Dataset {
   name: string;
   catalog: string;
   summary?: string;
-  description: string;
   source: string;
   sourceUrl?: string;
   fileType: string;
@@ -57,24 +54,9 @@ const DatasetCard = ({ dataset }: { dataset: Dataset }) => (
       </div>
       <div className="text-sm text-default-500 mt-2 line-clamp-3">
         {dataset.summary ? (
-          // 如果有简述，直接显示简述
           <span>{dataset.summary}</span>
         ) : (
-          // 如果没有简述，显示描述的摘要（使用markdown渲染）
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({node, ...props}) => <span {...props} />,
-              h1: ({node, ...props}) => <span className="font-semibold" {...props} />,
-              h2: ({node, ...props}) => <span className="font-semibold" {...props} />,
-              h3: ({node, ...props}) => <span className="font-semibold" {...props} />,
-              strong: ({node, ...props}) => <strong {...props} />,
-              em: ({node, ...props}) => <em {...props} />,
-              code: ({node, ...props}) => <code className="bg-gray-100 px-1 rounded text-xs" {...props} />,
-            }}
-          >
-            {dataset.description.length > 100 ? dataset.description.substring(0, 100) + '...' : dataset.description}
-          </ReactMarkdown>
+          <span className="text-gray-400">暂无简述</span>
         )}
       </div>
       
@@ -149,9 +131,9 @@ function DiscoverPageContent() {
         return;
       }
 
-      const datasets = groupedDatasets[catalog].filter((d: Dataset) => 
+      const datasets = groupedDatasets[catalog].filter((d: Dataset) =>
         d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.description.toLowerCase().includes(searchTerm.toLowerCase())
+        (d.summary && d.summary.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       
       if (datasets.length > 0) {

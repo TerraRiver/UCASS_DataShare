@@ -40,7 +40,6 @@ interface Dataset {
   name: string
   catalog: string
   summary?: string
-  description: string
   uploadTime: string
   downloadCount: number
   enableDataAnalysis: boolean
@@ -57,6 +56,8 @@ export default function DatasetDetailPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [readmeContent, setReadmeContent] = useState<string>('')
+  const [readmeLoading, setReadmeLoading] = useState(false)
   const [previewData, setPreviewData] = useState<{ headers: string[], rows: Record<string, string>[] } | null>(null);
   const [previewError, setPreviewError] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -118,6 +119,15 @@ export default function DatasetDetailPage() {
         if (firstPreviewable) {
           setSelectedPreviewFile(firstPreviewable);
         }
+
+        // 检查是否有README.md文件
+        const readmeFile = data.dataset.files?.find((file: DatasetFile) =>
+          file.originalName.toLowerCase() === 'readme.md'
+        );
+
+        if (readmeFile) {
+          fetchReadme(id, readmeFile.id);
+        }
       } else {
         setError(data.error || '获取数据集详情失败')
       }
@@ -127,6 +137,21 @@ export default function DatasetDetailPage() {
       setLoading(false)
     }
   }
+
+  const fetchReadme = async (datasetId: string, fileId: string) => {
+    setReadmeLoading(true);
+    try {
+      const response = await fetch(`/api/datasets/${datasetId}/files/${fileId}`);
+      if (response.ok) {
+        const text = await response.text();
+        setReadmeContent(text);
+      }
+    } catch (error) {
+      console.error('Failed to fetch README:', error);
+    } finally {
+      setReadmeLoading(false);
+    }
+  };
 
   const fetchPreview = async (datasetId: string, fileId: string) => {
     setLoadingPreview(true);
@@ -410,17 +435,29 @@ export default function DatasetDetailPage() {
                 <section id="dataset-description" className="scroll-mt-20">
                   <Card className="shadow-sm border border-gray-200">
                     <CardHeader className="bg-gray-50/50">
-                      <CardTitle className="text-xl font-semibold text-gray-900">数据集描述</CardTitle>
+                      <CardTitle className="text-xl font-semibold text-gray-900">
+                        {readmeContent ? 'README.md' : '数据集描述'}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <div className="prose prose-slate prose-headings:font-bold prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg max-w-none
-                        prose-code:text-sm prose-code:bg-gray-100 prose-code:text-gray-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                        prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
-                        [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-gray-100">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {dataset.description}
-                        </ReactMarkdown>
-                      </div>
+                      {readmeLoading ? (
+                        <div className="flex justify-center py-8">
+                          <div className="text-gray-500">加载README...</div>
+                        </div>
+                      ) : readmeContent ? (
+                        <div className="prose prose-slate prose-headings:font-bold prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg max-w-none
+                          prose-code:text-sm prose-code:bg-gray-100 prose-code:text-gray-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                          prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
+                          [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-gray-100">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {readmeContent}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 text-center py-8">
+                          未提供数据集描述（上传时可包含README.md文件）
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </section>
@@ -646,7 +683,7 @@ export default function DatasetDetailPage() {
                       onClick={() => {
                         navigator.share?.({
                           title: dataset.name,
-                          text: dataset.summary || dataset.description.substring(0, 100),
+                          text: dataset.summary || '数据集',
                           url: window.location.href
                         });
                       }}

@@ -17,10 +17,10 @@ const caseStudyUploadSchema = z.object({
   title: z.string(),
   author: z.string(),
   discipline: z.string(),
+  summary: z.string().max(30).optional(),
   publication: z.string(),
   publicationYear: z.coerce.number(),
   publicationUrl: z.string().url().optional(),
-  description: z.string(),
 });
 
 // Upload a new case study
@@ -31,23 +31,29 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
       return res.status(400).json({ error: '表单数据无效', details: validation.error.errors });
     }
 
-    if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
       return res.status(400).json({ error: '至少需要上传一个文件' });
     }
 
-    const { title, author, discipline, publication, publicationYear, publicationUrl, description } = validation.data;
+    // 修复 multer 导致的文件名中文乱码问题
+    files.forEach(file => {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    });
+
+    const { title, author, discipline, summary, publication, publicationYear, publicationUrl } = validation.data;
 
     const newCaseStudy = await prisma.caseStudy.create({
       data: {
         title,
         author,
         discipline,
+        summary: summary || null,
         publication,
         publicationYear,
         publicationUrl,
-        description,
         files: {
-          create: (req.files as Express.Multer.File[]).map(file => ({
+          create: files.map(file => ({
             filename: file.filename,
             originalName: file.originalname,
             filePath: file.path,
@@ -96,8 +102,8 @@ router.get('/', async (req, res) => {
     if (search) {
       where.OR = [
         { title: { contains: search as string, mode: 'insensitive' } },
-        { description: { contains: search as string, mode: 'insensitive' } },
         { author: { contains: search as string, mode: 'insensitive' } },
+        { discipline: { contains: search as string, mode: 'insensitive' } },
       ];
     }
 
@@ -109,11 +115,12 @@ router.get('/', async (req, res) => {
           title: true,
           author: true,
           discipline: true,
+          summary: true,
           publication: true,
           publicationYear: true,
-          description: true,
           uploadTime: true,
-          updateTime: true,
+          practiceUrl: true,
+          enablePractice: true,
           _count: {
             select: { files: true },
           },
@@ -145,7 +152,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const caseStudy = await prisma.caseStudy.findFirst({
-      where: { 
+      where: {
         id,
         isReviewed: true,
         isVisible: true,
@@ -169,6 +176,93 @@ router.get('/:id', async (req, res) => {
     res.json(caseStudy);
   } catch (error) {
     console.error('获取案例集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 获取案例集中的特定文件内容（用于读取README.md）
+router.get('/:id/files/:fileId', async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+
+    // 验证案例集是否存在且已发布
+    const caseStudy = await prisma.caseStudy.findFirst({
+      where: {
+        id,
+        isReviewed: true,
+        isVisible: true,
+      },
+    });
+
+    if (!caseStudy) {
+      return res.status(404).json({ error: '案例集不存在或未发布' });
+    }
+
+    // 查找文件
+    const file = await prisma.caseStudyFile.findFirst({
+      where: {
+        id: fileId,
+        caseStudyId: id,
+      }
+    });
+
+    if (!file) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: '文件在服务器上不存在' });
+    }
+
+    // 如果是文本文件（如README.md），直接返回文本内容
+    if (file.fileType === '.md' || file.fileType === '.txt') {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.send(content);
+    }
+    // 视频文件支持流式传输和范围请求（用于在线播放）
+    else if (['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv'].includes(file.fileType.toLowerCase())) {
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        // 支持范围请求，用于视频拖动
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file_stream = fs.createReadStream(filePath, { start, end });
+
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+        };
+
+        res.writeHead(206, head);
+        file_stream.pipe(res);
+      } else {
+        // 完整文件传输
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': 'video/mp4',
+        };
+
+        res.writeHead(200, head);
+        fs.createReadStream(filePath).pipe(res);
+      }
+    }
+    else {
+      // 其他文件类型返回下载，修复中文文件名乱码问题
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
+      res.download(filePath, file.originalName);
+    }
+  } catch (error) {
+    console.error('获取文件错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });

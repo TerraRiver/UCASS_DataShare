@@ -18,7 +18,6 @@ const uploadSchema = z.object({
   name: z.string().min(1, '数据集名称不能为空'),
   catalog: z.string().min(1, '请选择数据集分类'),
   summary: z.string().max(30, '简述不能超过30个字符').optional(),
-  description: z.string().min(10, '描述至少需要10个字符'),
   source: z.string().min(1, '数据来源不能为空'),
   sourceUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
   sourceDate: z.string().optional(),
@@ -216,7 +215,6 @@ export default function UploadPage() {
       if (data.summary) {
         formData.append('summary', data.summary)
       }
-      formData.append('description', data.description)
       formData.append('source', data.source)
       if (data.sourceUrl) {
         formData.append('sourceUrl', data.sourceUrl)
@@ -388,25 +386,6 @@ export default function UploadPage() {
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircleIcon className="h-4 w-4" />
                     {errors.summary.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-                  详细描述（Markdown格式文本） <span className="text-red-500">*</span>
-                </Label>
-                <Textarea 
-                  id="description" 
-                  {...register('description')} 
-                  rows={4}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                  placeholder="请详细描述数据集的内容、用途、数据收集方法等信息..."
-                />
-                {errors.description && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircleIcon className="h-4 w-4" />
-                    {errors.description.message}
                   </p>
                 )}
               </div>

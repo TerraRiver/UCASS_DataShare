@@ -36,7 +36,12 @@ export default function AdminDashboard() {
     pendingDatasets: 0,
     approvedDatasets: 0,
     totalDownloads: 0,
+    totalCaseStudies: 0,
+    pendingCaseStudies: 0,
+    approvedCaseStudies: 0,
+    totalCaseStudyDownloads: 0,
     datasetsByCategory: [],
+    caseStudiesByDiscipline: [],
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -90,34 +95,72 @@ export default function AdminDashboard() {
       <h1 className="text-3xl font-bold">管理仪表盘</h1>
 
       {/* 统计卡片 */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={BookMarkedIcon} title="数据集总数" value={stats.totalDatasets} color="text-blue-500" />
-        <StatCard icon={ClockIcon} title="等待审核" value={stats.pendingDatasets} color="text-yellow-500" />
-        <StatCard icon={CheckCircleIcon} title="已审核通过" value={stats.approvedDatasets} color="text-green-500" />
-        <StatCard icon={DownloadCloudIcon} title="总下载次数" value={stats.totalDownloads} color="text-indigo-500" />
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">数据集统计</h2>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={BookMarkedIcon} title="数据集总数" value={stats.totalDatasets} color="text-blue-500" />
+            <StatCard icon={ClockIcon} title="待审核" value={stats.pendingDatasets} color="text-yellow-500" />
+            <StatCard icon={CheckCircleIcon} title="已审核通过" value={stats.approvedDatasets} color="text-green-500" />
+            <StatCard icon={DownloadCloudIcon} title="总下载次数" value={stats.totalDownloads} color="text-indigo-500" />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">案例集统计</h2>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={BookMarkedIcon} title="案例集总数" value={stats.totalCaseStudies} color="text-emerald-500" />
+            <StatCard icon={ClockIcon} title="待审核" value={stats.pendingCaseStudies} color="text-orange-500" />
+            <StatCard icon={CheckCircleIcon} title="已审核通过" value={stats.approvedCaseStudies} color="text-teal-500" />
+            <StatCard icon={DownloadCloudIcon} title="总下载次数" value={stats.totalCaseStudyDownloads} color="text-purple-500" />
+          </div>
+        </div>
       </div>
 
       {/* 可视化图表 */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <h2 className="text-xl font-semibold">已通过数据集分类统计</h2>
-        </CardHeader>
-        <CardBody>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={stats.datasetsByCategory}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="#8884d8" name="数据集数量" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardBody>
-      </Card>
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <h2 className="text-xl font-semibold">数据集分类统计</h2>
+          </CardHeader>
+          <CardBody>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={stats.datasetsByCategory}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#3b82f6" name="数据集数量" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardBody>
+        </Card>
+
+        <Card className="shadow-lg">
+          <CardHeader>
+            <h2 className="text-xl font-semibold">案例集学科统计</h2>
+          </CardHeader>
+          <CardBody>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={stats.caseStudiesByDiscipline}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#10b981" name="案例集数量" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardBody>
+        </Card>
+      </div>
       
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* 数据集管理区域 */}
@@ -158,6 +201,10 @@ export default function AdminDashboard() {
             <CardBody>
               <p>
                 管理论文复现的案例集，包括审核、发布和删除。
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                共 <span className="font-bold text-emerald-600">{stats.totalCaseStudies}</span> 个案例集，
+                <span className="font-bold text-orange-600">{stats.pendingCaseStudies}</span> 个待审核。
               </p>
             </CardBody>
         </Card>

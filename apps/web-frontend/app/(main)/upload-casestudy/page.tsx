@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -17,10 +18,10 @@ const caseStudySchema = z.object({
   title: z.string().min(1, '标题不能为空'),
   author: z.string().min(1, '作者不能为空'),
   discipline: z.string().min(1, '请选择学科分类'),
+  summary: z.string().max(30, '简述不能超过30个字符').optional().or(z.literal('')),
   publication: z.string().min(1, '发表期刊/来源不能为空'),
   publicationYear: z.coerce.number().min(1900, '年份不正确').max(new Date().getFullYear(), '年份不正确'),
   publicationUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
-  description: z.string().min(10, '描述至少需要10个字符'),
 })
 
 type CaseStudyFormData = z.infer<typeof caseStudySchema>
@@ -31,6 +32,7 @@ const disciplines = [
 ]
 
 export default function UploadCaseStudyPage() {
+  const router = useRouter()
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -146,6 +148,11 @@ export default function UploadCaseStudyPage() {
                 </select>
                 {errors.discipline && <p className="text-red-500 text-sm mt-1">{errors.discipline.message}</p>}
               </div>
+              <div>
+                <Label htmlFor="summary">简述 (可选，最多30字符)</Label>
+                <Input id="summary" {...register('summary')} maxLength={30} placeholder="简要描述案例集内容" />
+                {errors.summary && <p className="text-red-500 text-sm mt-1">{errors.summary.message}</p>}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="publication">发表期刊/来源*</Label>
@@ -163,18 +170,13 @@ export default function UploadCaseStudyPage() {
                 <Input id="publicationUrl" type="url" {...register('publicationUrl')} />
                 {errors.publicationUrl && <p className="text-red-500 text-sm mt-1">{errors.publicationUrl.message}</p>}
               </div>
-              <div>
-                <Label htmlFor="description">详细描述*</Label>
-                <Textarea id="description" {...register('description')} rows={5} />
-                {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
-              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>文件上传</CardTitle>
-              <CardDescription>上传案例集包含的所有文件，如代码、数据、论文PDF等。</CardDescription>
+              <CardDescription>上传案例集包含的所有文件，如代码、数据、论文PDF等。<br/>💡 提示：可包含README.md文件作为案例集的详细描述文档</CardDescription>
             </CardHeader>
             <CardContent>
               <div 

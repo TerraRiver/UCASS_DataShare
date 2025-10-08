@@ -9,11 +9,13 @@ interface CaseStudy {
   id: string;
   title: string;
   author: string;
-  description: string;
   discipline: string;
+  summary?: string;
   publication: string;
   publicationYear: number;
-  updateTime: string;
+  uploadTime: string;
+  practiceUrl?: string;
+  enablePractice?: boolean;
   _count: { files: number };
 }
 
@@ -78,7 +80,7 @@ export default function CaseStudiesPage() {
         <main className="w-full md:w-3/4">
           <Input
             isClearable
-            placeholder="搜索案例集标题、作者、描述..."
+            placeholder="搜索案例集标题、作者、学科..."
             startContent={<SearchIcon />}
             value={searchTerm}
             onValueChange={setSearchTerm}
@@ -96,7 +98,11 @@ export default function CaseStudiesPage() {
                     <CardBody className="space-y-2">
                       <p className="text-sm text-gray-500"><strong>作者:</strong> {cs.author}</p>
                       <p className="text-sm text-gray-500"><strong>学科:</strong> {cs.discipline}</p>
-                      <p className="text-default-500 line-clamp-3">{cs.description}</p>
+                      <p className="text-sm text-gray-500"><strong>发表:</strong> {cs.publication} ({cs.publicationYear})</p>
+                      {cs.summary && (
+                        <p className="text-sm text-default-500 mt-2 line-clamp-2">{cs.summary}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2">包含 {cs._count.files} 个文件</p>
                     </CardBody>
                     <Divider/>
                     <CardFooter>

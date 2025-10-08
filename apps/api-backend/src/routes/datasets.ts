@@ -44,10 +44,10 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
       file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     });
 
-    const { name, catalog, summary, description, source, sourceUrl, sourceDate, recommendedCitations } = req.body;
+    const { name, catalog, summary, source, sourceUrl, sourceDate, recommendedCitations } = req.body;
 
-    if (!name || !catalog || !description || !source) {
-      return res.status(400).json({ error: '数据集名称、分类、描述和来源不能为空' });
+    if (!name || !catalog || !source) {
+      return res.status(400).json({ error: '数据集名称、分类和来源不能为空' });
     }
 
     // 验证简述长度
@@ -78,7 +78,6 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         name,
         catalog,
         summary: summary || null,
-        description,
         source,
         sourceUrl: sourceUrl || null,
         sourceDate: sourceDate ? new Date(sourceDate) : null,
@@ -137,7 +136,8 @@ router.get('/public', async (req, res) => {
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
-        { description: { contains: search as string, mode: 'insensitive' } },
+        { summary: { contains: search as string, mode: 'insensitive' } },
+        { catalog: { contains: search as string, mode: 'insensitive' } },
       ];
     }
 
@@ -152,7 +152,6 @@ router.get('/public', async (req, res) => {
         name: true,
         catalog: true,
         summary: true,
-        description: true,
         source: true,
         sourceUrl: true,
         uploadTime: true,
@@ -224,6 +223,58 @@ router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
     res.json({ dataset });
   } catch (error) {
     console.error('获取数据集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 获取数据集中的特定文件内容（用于读取README.md）
+router.get('/:id/files/:fileId', optionalAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id, fileId } = req.params;
+    const isAdmin = !!req.adminUser;
+
+    // 验证数据集是否存在且已发布
+    const dataset = await prisma.dataset.findUnique({
+      where: { id },
+    });
+
+    if (!dataset) {
+      return res.status(404).json({ error: '数据集不存在' });
+    }
+
+    // 如果不是管理员，检查数据集是否可访问
+    if (!isAdmin && (!dataset.isReviewed || !dataset.isVisible)) {
+      return res.status(403).json({ error: '数据集当前不可访问' });
+    }
+
+    // 查找文件
+    const file = await prisma.datasetFile.findFirst({
+      where: {
+        id: fileId,
+        datasetId: id,
+      }
+    });
+
+    if (!file) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    if (!fs.existsSync(file.filePath)) {
+      return res.status(404).json({ error: '文件在服务器上不存在' });
+    }
+
+    // 如果是文本文件（如README.md），直接返回文本内容
+    if (file.fileType === '.md' || file.fileType === '.txt') {
+      const content = fs.readFileSync(file.filePath, 'utf-8');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.send(content);
+    } else {
+      // 其他文件类型返回下载
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
+      res.download(file.filePath, file.originalName);
+    }
+  } catch (error) {
+    console.error('获取文件错误:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });

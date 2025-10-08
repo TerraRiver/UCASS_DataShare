@@ -14,6 +14,7 @@ router.use(requireAdmin);
 // 获取仪表盘统计数据
 router.get('/stats', async (req: AuthenticatedRequest, res) => {
   try {
+    // 数据集统计
     const totalDatasets = await prisma.dataset.count();
     const pendingDatasets = await prisma.dataset.count({ where: { isReviewed: false } });
     const approvedDatasets = await prisma.dataset.count({ where: { isReviewed: true } });
@@ -37,12 +38,41 @@ router.get('/stats', async (req: AuthenticatedRequest, res) => {
       value: item._count.catalog
     }));
 
+    // 案例集统计
+    const totalCaseStudies = await prisma.caseStudy.count();
+    const pendingCaseStudies = await prisma.caseStudy.count({ where: { isReviewed: false } });
+    const approvedCaseStudies = await prisma.caseStudy.count({ where: { isReviewed: true } });
+
+    const totalCaseStudyDownloads = await prisma.caseStudy.aggregate({
+      _sum: {
+        downloadCount: true,
+      },
+    });
+
+    const caseStudiesByDiscipline = await prisma.caseStudy.groupBy({
+      by: ['discipline'],
+      _count: {
+        discipline: true,
+      },
+      where: { isReviewed: true },
+    });
+
+    const disciplineCounts = caseStudiesByDiscipline.map(item => ({
+      name: item.discipline,
+      value: item._count.discipline
+    }));
+
     res.json({
       totalDatasets,
       pendingDatasets,
       approvedDatasets,
       totalDownloads: totalDownloads._sum.downloadCount || 0,
       datasetsByCategory: categoryCounts,
+      totalCaseStudies,
+      pendingCaseStudies,
+      approvedCaseStudies,
+      totalCaseStudyDownloads: totalCaseStudyDownloads._sum.downloadCount || 0,
+      caseStudiesByDiscipline: disciplineCounts,
     });
   } catch (error) {
     console.error('获取统计数据错误:', error);
@@ -60,7 +90,6 @@ router.get('/datasets/pending', async (req: AuthenticatedRequest, res) => {
         name: true,
         catalog: true,
         summary: true,
-        description: true,
         uploadTime: true,
         uploadedBy: true,
         enablePreview: true,
@@ -99,8 +128,8 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
-        { description: { contains: search as string, mode: 'insensitive' } },
         { catalog: { contains: search as string, mode: 'insensitive' } },
+        { summary: { contains: search as string, mode: 'insensitive' } },
       ];
     }
 
@@ -112,7 +141,6 @@ router.get('/datasets', async (req: AuthenticatedRequest, res) => {
           name: true,
           catalog: true,
           summary: true,
-          description: true,
           source: true,
           sourceUrl: true,
           sourceDate: true,
@@ -427,9 +455,9 @@ router.get('/casestudies', async (req: AuthenticatedRequest, res) => {
       prisma.caseStudy.findMany({
         where,
         select: {
-          id: true, title: true, author: true, publication: true, publicationYear: true,
-          description: true, uploadTime: true, uploadedBy: true, isReviewed: true,
-          isVisible: true, downloadCount: true,
+          id: true, title: true, author: true, discipline: true, publication: true, publicationYear: true,
+          practiceUrl: true, uploadTime: true, uploadedBy: true, isReviewed: true,
+          isVisible: true, isFeatured: true, enablePractice: true, downloadCount: true,
           _count: { select: { files: true } },
         },
         orderBy: { uploadTime: 'desc' },
@@ -454,15 +482,119 @@ router.get('/casestudies', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// 获取单个案例集详情 (管理员)
+router.get('/casestudies/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const caseStudy = await prisma.caseStudy.findUnique({
+      where: { id },
+      include: { files: true },
+    });
+
+    if (!caseStudy) {
+      return res.status(404).json({ error: '案例集不存在' });
+    }
+
+    res.json({ caseStudy });
+  } catch (error) {
+    console.error('获取案例集详情错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 更新案例集详细信息
+router.put('/casestudies/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      author,
+      discipline,
+      summary,
+      publication,
+      publicationYear,
+      publicationUrl,
+      description,
+      practiceUrl,
+      isFeatured,
+      enablePractice
+    } = req.body;
+
+    const dataToUpdate: any = {};
+    if (title) dataToUpdate.title = title;
+    if (author) dataToUpdate.author = author;
+    if (discipline) dataToUpdate.discipline = discipline;
+    if (summary !== undefined) dataToUpdate.summary = summary;
+    if (publication) dataToUpdate.publication = publication;
+    if (publicationYear !== undefined) dataToUpdate.publicationYear = publicationYear;
+    if (publicationUrl !== undefined) dataToUpdate.publicationUrl = publicationUrl;
+    if (description) dataToUpdate.description = description;
+    if (practiceUrl !== undefined) dataToUpdate.practiceUrl = practiceUrl;
+    if (typeof isFeatured === 'boolean') dataToUpdate.isFeatured = isFeatured;
+    if (typeof enablePractice === 'boolean') dataToUpdate.enablePractice = enablePractice;
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return res.status(400).json({ error: '没有提供任何要更新的数据' });
+    }
+
+    const updatedCaseStudy = await prisma.caseStudy.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({ message: '案例集更新成功', caseStudy: updatedCaseStudy });
+  } catch (error) {
+    console.error('更新案例集错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 审核案例集
+router.put('/casestudies/:id/review', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ error: '无效的审核操作' });
+    }
+
+    const dataToUpdate: any = {
+      isReviewed: true,
+    };
+
+    if (action === 'approve') {
+      dataToUpdate.isVisible = true;
+    } else {
+      dataToUpdate.isVisible = false;
+    }
+
+    const updatedCaseStudy = await prisma.caseStudy.update({
+      where: { id },
+      data: dataToUpdate,
+    });
+
+    res.json({
+      message: action === 'approve' ? '案例集已批准上线' : '案例集已拒绝',
+      caseStudy: updatedCaseStudy
+    });
+  } catch (error) {
+    console.error('审核案例集错误:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // 更新案例集状态
 router.put('/casestudies/:id/status', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { isReviewed, isVisible } = req.body;
+    const { isReviewed, isVisible, isFeatured, enablePractice } = req.body;
 
     const dataToUpdate: Record<string, boolean> = {};
     if (isReviewed !== undefined) dataToUpdate.isReviewed = isReviewed;
     if (isVisible !== undefined) dataToUpdate.isVisible = isVisible;
+    if (typeof isFeatured === 'boolean') dataToUpdate.isFeatured = isFeatured;
+    if (typeof enablePractice === 'boolean') dataToUpdate.enablePractice = enablePractice;
 
     if (Object.keys(dataToUpdate).length === 0) {
       return res.status(400).json({ error: '没有提供要更新的状态' });

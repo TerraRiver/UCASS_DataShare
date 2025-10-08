@@ -31,7 +31,6 @@ interface Dataset {
   name: string
   catalog: string
   summary?: string
-  description: string
   source?: string
   sourceUrl?: string
   sourceDate?: string
@@ -375,6 +374,12 @@ const DatasetManagementPage: FC = () => {
       filtered.sort((a, b) => {
         const first = a[sortDescriptor.column as keyof Dataset];
         const second = b[sortDescriptor.column as keyof Dataset];
+
+        // 处理可能的 undefined 值
+        if (first === undefined && second === undefined) return 0;
+        if (first === undefined) return 1;
+        if (second === undefined) return -1;
+
         const cmp = first < second ? -1 : first > second ? 1 : 0;
         return sortDescriptor.direction === "descending" ? -cmp : cmp;
       });
@@ -678,14 +683,6 @@ const DatasetManagementPage: FC = () => {
                       onChange={(e) => setSelectedDataset({...selectedDataset, summary: e.target.value})}
                       maxLength={30}
                     />
-                    <Textarea
-                      label="详细描述"
-                      placeholder="详细描述数据集的内容、结构、变量等（支持Markdown）"
-                      value={selectedDataset.description}
-                      onChange={(e) => setSelectedDataset({...selectedDataset, description: e.target.value})}
-                      minRows={4}
-                      isRequired
-                    />
                     <Input
                       label="数据来源"
                       placeholder="例如：世界银行、国家统计局"
@@ -790,10 +787,6 @@ const DatasetManagementPage: FC = () => {
                         <p className="text-sm text-gray-600">{selectedDataset.summary}</p>
                       </div>
                     )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">详细描述</p>
-                      <p className="text-sm text-gray-600 line-clamp-3">{selectedDataset.description}</p>
-                    </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="font-medium text-gray-700">上传者</p>

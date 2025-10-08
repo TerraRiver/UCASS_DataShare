@@ -24,7 +24,6 @@ model Dataset {
   id                   String   @id @default(cuid())
   name                 String
   catalog              String
-  description          String
   summary              String?
   source               String
   sourceUrl            String?  @map("source_url")
@@ -67,15 +66,18 @@ model CaseStudy {
   title         String
   author        String
   discipline    String
+  summary       String?  // 简述，可选，最多30字符
   publication   String
   publicationYear Int?     @map("publication_year")
   publicationUrl String?  @map("publication_url")
-  description   String
+  practiceUrl   String?  @map("practice_url")
   uploadedBy    String?  @map("uploaded_by")
   uploadTime    DateTime @default(now()) @map("upload_time")
   updateTime    DateTime @updatedAt @map("update_time")
   isReviewed    Boolean  @default(false) @map("is_reviewed")
   isVisible     Boolean  @default(false) @map("is_visible")
+  isFeatured    Boolean  @default(false) @map("is_featured")
+  enablePractice Boolean @default(false) @map("enable_practice")
   downloadCount Int      @default(0) @map("download_count")
 
   files         CaseStudyFile[]
