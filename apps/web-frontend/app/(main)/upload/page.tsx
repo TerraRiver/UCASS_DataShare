@@ -258,22 +258,22 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-gray-50 via-red-50 to-pink-50 border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
           <div className="text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-red-100 rounded-full border border-red-200">
                 <UploadIcon className="h-6 w-6 text-red-600" />
               </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-3 text-gray-900">数据集上传</h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900">数据集上传</h1>
+            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
               分享您的研究数据集，为学术社区贡献宝贵资源
             </p>
-            <div className="mt-6 flex justify-center">
-              <div className="flex items-center space-x-6 text-sm text-gray-600">
+            <div className="mt-8 flex justify-center">
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm text-gray-600">
                 <div className="flex items-center">
                   <div className="p-1 bg-green-100 rounded-full mr-2">
                     <CheckCircleIcon className="h-3 w-3 text-green-600" />
@@ -299,23 +299,23 @@ export default function UploadPage() {
       </div>
 
       {/* Main content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Progress Indicator */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-gray-500 mb-3">
               <span>填写数据集信息</span>
               <span>第 1 步，共 3 步</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-red-500 h-2 rounded-full" style={{ width: '33%' }}></div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div className="bg-red-500 h-2.5 rounded-full transition-all duration-300" style={{ width: '33%' }}></div>
             </div>
           </div>
 
           {/* Basic Information Section */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-              <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Card className="shadow-lg border-0 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b p-5 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -327,8 +327,8 @@ export default function UploadPage() {
                 请填写数据集的基本信息，这些信息将帮助其他研究者更好地理解和使用您的数据。
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="p-5 sm:p-6 space-y-5 sm:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                     数据集名称 <span className="text-red-500">*</span>
@@ -393,9 +393,9 @@ export default function UploadPage() {
           </Card>
 
           {/* Data Source Section */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
-              <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Card className="shadow-lg border-0 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b p-5 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -407,8 +407,8 @@ export default function UploadPage() {
                 提供数据来源信息有助于其他研究者了解数据的可信度和使用条件。
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="p-5 sm:p-6 space-y-5 sm:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="source" className="text-sm font-medium text-gray-700">
                     数据来源 <span className="text-red-500">*</span>
@@ -462,9 +462,9 @@ export default function UploadPage() {
           </Card>
 
           {/* Recommended Citations Section */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b">
-              <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Card className="shadow-lg border-0 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b p-5 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <div className="p-2 bg-amber-100 rounded-lg">
                   <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -476,7 +476,7 @@ export default function UploadPage() {
                 使用本数据集时推荐引用的文献（国标格式），可选填写。
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-5 sm:p-6 space-y-4">
               {citations.map((citation, index) => (
                 <div key={index} className="flex gap-2">
                   <div className="flex-1">
@@ -523,9 +523,9 @@ export default function UploadPage() {
           </Card>
 
           {/* File Upload Section */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
-              <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Card className="shadow-lg border-0 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b p-5 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <UploadIcon className="w-5 h-5 text-purple-600" />
                 </div>
@@ -535,11 +535,11 @@ export default function UploadPage() {
                 支持任意文件格式，单次最多上传10个文件，单文件最大1GB。
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-5 sm:p-6">
               <div className="space-y-4">
                 {/* File Drop Zone */}
                 <div
-                  className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 ${
+                  className={`relative border-2 border-dashed rounded-xl p-6 sm:p-8 transition-all duration-300 ${
                     isDragOver 
                       ? 'border-red-400 bg-red-50' 
                       : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'
@@ -550,12 +550,12 @@ export default function UploadPage() {
                 >
                   <div className="text-center">
                     <div className="mx-auto flex justify-center">
-                      <div className={`p-3 rounded-full ${isDragOver ? 'bg-red-100' : 'bg-gray-100'}`}>
-                        <UploadIcon className={`h-8 w-8 ${isDragOver ? 'text-red-500' : 'text-gray-400'}`} />
+                      <div className={`p-2 sm:p-3 rounded-full ${isDragOver ? 'bg-red-100' : 'bg-gray-100'}`}>
+                        <UploadIcon className={`h-6 w-6 sm:h-8 sm:w-8 ${isDragOver ? 'text-red-500' : 'text-gray-400'}`} />
                       </div>
                     </div>
-                    <div className="mt-4">
-                      <p className="text-lg font-medium text-gray-900">
+                    <div className="mt-3 sm:mt-4">
+                      <p className="text-base sm:text-lg font-medium text-gray-900">
                         {isDragOver ? '释放文件开始上传' : '拖拽文件到这里'}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
@@ -571,8 +571,8 @@ export default function UploadPage() {
                         </label>
                       </p>
                     </div>
-                    <div className="mt-4 flex justify-center">
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                    <div className="mt-3 sm:mt-4 flex justify-center">
+                      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-gray-500">
                         <span>支持任意格式文件</span>
                         <span>•</span>
                         <span>最多10个文件</span>
@@ -635,8 +635,8 @@ export default function UploadPage() {
           </Card>
 
           {/* Submit Section */}
-          <Card className="shadow-lg border-0 bg-gradient-to-r from-red-50 to-pink-50">
-            <CardContent className="p-6">
+          <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-r from-red-50 to-pink-50">
+            <CardContent className="p-5 sm:p-6">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
                   <h3 className="text-lg font-semibold text-gray-900">准备提交？</h3>

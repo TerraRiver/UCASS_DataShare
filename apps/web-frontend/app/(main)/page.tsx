@@ -36,7 +36,7 @@ export default function Home() {
 					</h1>
 					<br />
 					<h1 className={title({ class: "mt-4" })}>
-						XX数据集共享交流平台
+						数据集共享交流平台
 					</h1>
 				</div>
 
