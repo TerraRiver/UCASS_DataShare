@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { ArrowLeftIcon, UploadIcon, CheckCircleIcon, AlertCircleIcon, FileIcon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, UploadIcon, CheckCircleIcon, AlertCircleIcon, FileIcon, XIcon, InfoIcon, BookOpenIcon } from 'lucide-react'
 
 const uploadSchema = z.object({
   name: z.string().min(1, '数据集名称不能为空'),
@@ -51,9 +51,49 @@ export default function UploadPage() {
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
   } = useForm<UploadFormData>({
     resolver: zodResolver(uploadSchema),
   })
+
+  // Watch form fields for real-time progress calculation
+  const formData = watch()
+
+  // Calculate real progress based on form completion
+  const progress = useMemo(() => {
+    let completedSteps = 0
+    let totalSteps = 0
+
+    // Step 1: Basic Information (3 fields)
+    totalSteps += 3
+    if (formData?.name) completedSteps++
+    if (formData?.catalog) completedSteps++
+    if (formData?.summary) completedSteps++
+
+    // Step 2: Data Source (3 fields)
+    totalSteps += 3
+    if (formData?.source) completedSteps++
+    if (formData?.sourceUrl) completedSteps++
+    if (formData?.sourceDate) completedSteps++
+
+    // Step 3: Citations (optional but counts if filled)
+    totalSteps += 1
+    if (citations.some(c => c.trim() !== '')) completedSteps++
+
+    // Step 4: Files (required)
+    totalSteps += 1
+    if (selectedFiles.length > 0) completedSteps++
+
+    return Math.round((completedSteps / totalSteps) * 100)
+  }, [formData, citations, selectedFiles])
+
+  // Determine current step based on what's filled
+  const currentStep = useMemo(() => {
+    if (!formData?.name || !formData?.catalog) return 1
+    if (!formData?.source) return 2
+    if (selectedFiles.length === 0) return 3
+    return 4
+  }, [formData, selectedFiles])
 
   // 处理文件选择
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,34 +249,34 @@ export default function UploadPage() {
     setUploadResult(null)
 
     try {
-      const formData = new FormData()
-      formData.append('name', data.name)
-      formData.append('catalog', data.catalog)
+      const submitData = new FormData()
+      submitData.append('name', data.name)
+      submitData.append('catalog', data.catalog)
       if (data.summary) {
-        formData.append('summary', data.summary)
+        submitData.append('summary', data.summary)
       }
-      formData.append('source', data.source)
+      submitData.append('source', data.source)
       if (data.sourceUrl) {
-        formData.append('sourceUrl', data.sourceUrl)
+        submitData.append('sourceUrl', data.sourceUrl)
       }
       if (data.sourceDate) {
-        formData.append('sourceDate', data.sourceDate)
+        submitData.append('sourceDate', data.sourceDate)
       }
 
       // 添加推荐引用文献（过滤空值）
       const validCitations = citations.filter(c => c.trim() !== '')
       if (validCitations.length > 0) {
-        formData.append('recommendedCitations', JSON.stringify(validCitations))
+        submitData.append('recommendedCitations', JSON.stringify(validCitations))
       }
 
       // 添加选中的文件
       selectedFiles.forEach(file => {
-        formData.append('files', file)
+        submitData.append('files', file)
       })
 
       const response = await fetch('/api/datasets/upload', {
         method: 'POST',
-        body: formData,
+        body: submitData,
       })
 
       const result = await response.json()
@@ -258,73 +298,110 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white -mx-6 -mt-16">
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-gray-50 via-red-50 to-pink-50 border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="p-3 bg-red-100 rounded-full border border-red-200">
-                <UploadIcon className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900">数据集上传</h1>
-            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
+      <section className="border-b border-gray-100 py-12 px-8 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8">
+            <h1
+              className="text-4xl md:text-5xl font-light text-gray-900 mb-4"
+              style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+            >
+              数据集上传
+            </h1>
+            <div className="h-1 w-20 bg-red-600 mx-auto mb-6"></div>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               分享您的研究数据集，为学术社区贡献宝贵资源
             </p>
-            <div className="mt-8 flex justify-center">
-              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <div className="p-1 bg-green-100 rounded-full mr-2">
-                    <CheckCircleIcon className="h-3 w-3 text-green-600" />
-                  </div>
-                  <span>支持多种格式</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="p-1 bg-blue-100 rounded-full mr-2">
-                    <CheckCircleIcon className="h-3 w-3 text-blue-600" />
-                  </div>
-                  <span>快速审核</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="p-1 bg-purple-100 rounded-full mr-2">
-                    <CheckCircleIcon className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span>安全存储</span>
-                </div>
+          </div>
+
+          {/* Benefits */}
+          <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600 max-w-3xl mx-auto">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-green-50 rounded-full">
+                <CheckCircleIcon className="h-4 w-4 text-green-600" />
               </div>
+              <span>支持多种格式</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-50 rounded-full">
+                <CheckCircleIcon className="h-4 w-4 text-blue-600" />
+              </div>
+              <span>快速审核</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-purple-50 rounded-full">
+                <CheckCircleIcon className="h-4 w-4 text-purple-600" />
+              </div>
+              <span>安全存储</span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Main content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Progress Indicator */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex items-center justify-between text-xs sm:text-sm text-gray-500 mb-3">
-              <span>填写数据集信息</span>
-              <span>第 1 步，共 3 步</span>
+      <section className="py-12 px-8">
+        <div className="max-w-5xl mx-auto">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {/* Real-time Progress Indicator */}
+            <div className="bg-white border-2 border-gray-100 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span
+                  className="text-sm font-medium text-gray-700"
+                  style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                >
+                  填写进度
+                </span>
+                <span className="text-sm text-gray-600">
+                  当前步骤: 第 {currentStep} 步
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-red-600 h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-right">
+                <span className="text-xs text-gray-500">完成度: {progress}%</span>
+              </div>
+
+              {/* Step Indicators */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className={`text-center p-3 rounded-lg border-2 transition-all ${formData?.name && formData?.catalog ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className={`text-xs font-medium ${formData?.name && formData?.catalog ? 'text-green-700' : 'text-gray-600'}`}>
+                    ① 基本信息
+                  </div>
+                </div>
+                <div className={`text-center p-3 rounded-lg border-2 transition-all ${formData?.source ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className={`text-xs font-medium ${formData?.source ? 'text-green-700' : 'text-gray-600'}`}>
+                    ② 数据来源
+                  </div>
+                </div>
+                <div className={`text-center p-3 rounded-lg border-2 transition-all ${citations.some(c => c.trim() !== '') ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className={`text-xs font-medium ${citations.some(c => c.trim() !== '') ? 'text-green-700' : 'text-gray-600'}`}>
+                    ③ 引用文献
+                  </div>
+                </div>
+                <div className={`text-center p-3 rounded-lg border-2 transition-all ${selectedFiles.length > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className={`text-xs font-medium ${selectedFiles.length > 0 ? 'text-green-700' : 'text-gray-600'}`}>
+                    ④ 文件上传
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div className="bg-red-500 h-2.5 rounded-full transition-all duration-300" style={{ width: '33%' }}></div>
-            </div>
-          </div>
 
           {/* Basic Information Section */}
-          <Card className="shadow-lg border-0 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b p-5 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+          <Card className="border-2 border-gray-100 rounded-lg overflow-hidden hover:border-red-200 transition-colors">
+            <CardHeader className="bg-white border-b border-gray-100 p-6">
+              <CardTitle
+                className="text-xl font-medium text-gray-900"
+                style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+              >
                 基本信息
               </CardTitle>
-              <CardDescription>
-                请填写数据集的基本信息，这些信息将帮助其他研究者更好地理解和使用您的数据。
+              <CardDescription className="text-gray-600 mt-2">
+                请填写数据集的基本信息，这些信息将帮助其他研究者更好地理解和使用您的数据
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-5 sm:space-y-6">
@@ -393,18 +470,16 @@ export default function UploadPage() {
           </Card>
 
           {/* Data Source Section */}
-          <Card className="shadow-lg border-0 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b p-5 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+          <Card className="border-2 border-gray-100 rounded-lg overflow-hidden hover:border-red-200 transition-colors">
+            <CardHeader className="bg-white border-b border-gray-100 p-6">
+              <CardTitle
+                className="text-xl font-medium text-gray-900"
+                style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+              >
                 数据来源信息
               </CardTitle>
-              <CardDescription>
-                提供数据来源信息有助于其他研究者了解数据的可信度和使用条件。
+              <CardDescription className="text-gray-600 mt-2">
+                提供数据来源信息有助于其他研究者了解数据的可信度和使用条件
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-5 sm:space-y-6">
@@ -462,18 +537,16 @@ export default function UploadPage() {
           </Card>
 
           {/* Recommended Citations Section */}
-          <Card className="shadow-lg border-0 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 border-b p-5 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
+          <Card className="border-2 border-gray-100 rounded-lg overflow-hidden hover:border-red-200 transition-colors">
+            <CardHeader className="bg-white border-b border-gray-100 p-6">
+              <CardTitle
+                className="text-xl font-medium text-gray-900"
+                style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+              >
                 推荐引用文献
               </CardTitle>
-              <CardDescription>
-                使用本数据集时推荐引用的文献（国标格式），可选填写。
+              <CardDescription className="text-gray-600 mt-2">
+                使用本数据集时推荐引用的文献（国标格式），可选填写
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-4">
@@ -523,19 +596,79 @@ export default function UploadPage() {
           </Card>
 
           {/* File Upload Section */}
-          <Card className="shadow-lg border-0 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b p-5 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <UploadIcon className="w-5 h-5 text-purple-600" />
-                </div>
+          <Card className="border-2 border-gray-100 rounded-lg overflow-hidden hover:border-red-200 transition-colors">
+            <CardHeader className="bg-white border-b border-gray-100 p-6">
+              <CardTitle
+                className="text-xl font-medium text-gray-900"
+                style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+              >
                 文件上传
               </CardTitle>
-              <CardDescription>
-                支持任意文件格式，单次最多上传10个文件，单文件最大1GB。
+              <CardDescription className="text-gray-600 mt-2">
+                支持任意文件格式，单次最多上传10个文件，单文件最大1GB
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-5 sm:p-6">
+            <CardContent className="p-6">
+              {/* File Structure Guidance */}
+              <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-5">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                    <InfoIcon className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4
+                      className="text-base font-medium text-gray-900 mb-3"
+                      style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                    >
+                      文件上传指南
+                    </h4>
+                    <div className="space-y-3 text-sm text-gray-700">
+                      <div className="flex items-start gap-2">
+                        <div className="p-1 bg-green-100 rounded-full flex-shrink-0 mt-0.5">
+                          <CheckCircleIcon className="h-3.5 w-3.5 text-green-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">强烈建议包含 README.md 文件：</span>
+                          <span className="text-gray-600 block mt-1">
+                            README.md 将在数据集详情页自动渲染，用于详细介绍数据集的内容、使用方法、数据字段说明等。支持 Markdown 格式。
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <div className="p-1 bg-blue-100 rounded-full flex-shrink-0 mt-0.5">
+                          <CheckCircleIcon className="h-3.5 w-3.5 text-blue-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">数据文件格式建议：</span>
+                          <div className="text-gray-600 mt-1 space-y-1">
+                            <div>• <span className="font-medium text-green-700">CSV / XLSX：</span>表格数据，支持在线预览</div>
+                            <div>• <span className="font-medium text-gray-700">PDF：</span>论文、报告等文档</div>
+                            <div>• <span className="font-medium text-gray-700">JSON：</span>结构化数据</div>
+                            <div>• <span className="font-medium text-gray-700">Python/R 脚本：</span>数据处理代码</div>
+                            <div>• <span className="font-medium text-gray-700">压缩包：</span>批量文件打包上传</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <div className="p-1 bg-amber-100 rounded-full flex-shrink-0 mt-0.5">
+                          <BookOpenIcon className="h-3.5 w-3.5 text-amber-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium">文件组织建议：</span>
+                          <div className="text-gray-600 mt-1 space-y-1">
+                            <div>• 使用清晰的文件命名（如：<code className="bg-white px-1 py-0.5 rounded text-xs">data_2024.csv</code>）</div>
+                            <div>• 将相关文件打包在同一数据集中</div>
+                            <div>• 如有多个数据文件，建议在 README.md 中说明每个文件的用途</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 {/* File Drop Zone */}
                 <div
@@ -635,13 +768,18 @@ export default function UploadPage() {
           </Card>
 
           {/* Submit Section */}
-          <Card className="shadow-lg border-0 overflow-hidden bg-gradient-to-r from-red-50 to-pink-50">
-            <CardContent className="p-5 sm:p-6">
+          <Card className="border-2 border-red-100 rounded-lg overflow-hidden bg-gradient-to-r from-red-50 to-pink-50">
+            <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
-                  <h3 className="text-lg font-semibold text-gray-900">准备提交？</h3>
+                  <h3
+                    className="text-lg font-medium text-gray-900"
+                    style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                  >
+                    准备提交？
+                  </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    提交后，您的数据集将进入审核流程，通常在1-3个工作日内完成审核。
+                    提交后，您的数据集将进入审核流程，通常在1-3个工作日内完成审核
                   </p>
                 </div>
                 <div className="flex space-x-3">
@@ -649,14 +787,14 @@ export default function UploadPage() {
                     type="button"
                     variant="ghost"
                     onClick={() => window.history.back()}
-                    className="border border-gray-300"
+                    className="border-2 border-gray-300 hover:bg-gray-100"
                   >
                     取消
                   </Button>
                   <Button
                     type="submit"
                     disabled={uploading}
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-8 py-2 font-medium"
+                    className="bg-red-600 hover:bg-red-700 text-white px-8 font-medium"
                   >
                     {uploading ? (
                       <div className="flex items-center space-x-2">

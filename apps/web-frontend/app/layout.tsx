@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Noto_Serif_SC } from 'next/font/google'
 import "./globals.css";
 import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
+const notoSerifSC = Noto_Serif_SC({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-noto-serif-sc',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'UCASS DataShare - 人文社科数据分享平台',
@@ -17,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" className={`${notoSerifSC.variable}`}>
       <body className={inter.className}>
         <Providers>
           {children}

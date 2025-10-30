@@ -86,8 +86,8 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         files: {
           create: files.map(file => {
             const fileExt = path.extname(file.originalname).toLowerCase();
-            // 设置可预览的文件类型
-            const isPreviewable = ['.csv', '.txt', '.md', '.pdf', '.dta', '.xls', '.xlsx'].includes(fileExt);
+            // 设置可预览的文件类型：只支持 CSV 和 XLSX
+            const isPreviewable = ['.csv', '.xlsx'].includes(fileExt);
 
             return {
               filename: file.filename,
@@ -454,14 +454,8 @@ router.get('/:id/preview/:fileId', async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    // 处理 Stata 文件 (.dta)
-    if (fileExt === '.dta') {
-      // Stata文件需要专门的库来解析,这里暂时返回不支持的提示
-      // 可以考虑使用 stata-js 或者其他库来实现
-      return res.status(400).json({ error: 'Stata .dta 文件预览功能正在开发中,请下载后使用专业软件查看' });
-    }
-
-    return res.status(400).json({ error: '不支持的文件类型' });
+    // 其他文件类型不支持预览
+    return res.status(400).json({ error: '仅支持 CSV 和 XLSX 文件预览' });
 
   } catch (error) {
     console.error('获取数据预览错误:', error);

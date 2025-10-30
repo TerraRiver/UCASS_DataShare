@@ -12,10 +12,10 @@ async function updatePreviewableFiles() {
 
     let updatedCount = 0;
 
-    // 更新可预览的文件类型
+    // 更新可预览的文件类型：只支持 CSV 和 XLSX
     for (const file of allFiles) {
       const fileExt = file.fileType.toLowerCase();
-      const isPreviewable = ['.csv', '.txt'].includes(fileExt);
+      const isPreviewable = ['.csv', '.xlsx'].includes(fileExt);
 
       if (isPreviewable !== file.isPreviewable) {
         await prisma.datasetFile.update({

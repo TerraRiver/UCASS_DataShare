@@ -1,129 +1,242 @@
 'use client'
 
 import { Link } from "@nextui-org/link";
-import { button as buttonStyles } from "@nextui-org/theme";
-import { siteConfig } from "@/config/site";
-import { title, subtitle } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
-import {Card, CardHeader, CardBody, CardFooter, Image, Button} from "@nextui-org/react";
-import { 
-	ArrowRight, BookCopy, FileUp, Layers3, 
-	Landmark, TestTube2, BookHeart, LandmarkIcon, Globe, Mic, Cpu, Sigma
-} from "lucide-react";
-import { Snippet } from "@nextui-org/snippet";
-import { Code } from "@nextui-org/code";
-import { GithubIcon } from "@/components/icons";
-
-const categories = [
-	{ name: '政治学', icon: <Landmark size={32} className="text-blue-500"/>, color: "blue" },
-	{ name: '经济学', icon: <TestTube2 size={32} className="text-green-500"/>, color: "green" },
-	{ name: '社会学', icon: <BookHeart size={32} className="text-red-500"/>, color: "red" },
-	{ name: '传统与现代文化', icon: <LandmarkIcon size={32} className="text-yellow-500"/>, color: "yellow" },
-	{ name: '法学', icon: <Globe size={32} className="text-purple-500"/>, color: "purple" },
-	{ name: '新闻传播', icon: <Mic size={32} className="text-pink-500"/>, color: "pink" },
-	{ name: '计算科学', icon: <Cpu size={32} className="text-gray-500"/>, color: "default" },
-	{ name: '数学', icon: <Sigma size={32} className="text-orange-500"/>, color: "orange" },
-]
+import { Button, Card, CardBody } from "@nextui-org/react";
+import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3 } from "lucide-react";
 
 export default function Home() {
 	return (
 		<DefaultLayout>
-			{/* Hero Section */}
-			<section className="flex flex-col items-center justify-center gap-4 py-12 md:py-20">
-				<div className="max-w-4xl text-center">
-					<h1 className={title({ color: "red", class: "whitespace-nowrap" })}>
-						计算社会科学与国家治理实验室
-					</h1>
-					<br />
-					<h1 className={title({ class: "mt-4" })}>
-						数据集共享交流平台
-					</h1>
-				</div>
+			{/* Hero Section - Minimalist Design */}
+			<section className="flex flex-col items-center justify-center min-h-[85vh] px-8">
+				<div className="max-w-5xl text-center space-y-16">
+					{/* Title with Serif Font */}
+					<div className="space-y-6">
+						<h1
+							className="text-5xl md:text-7xl font-light tracking-wide"
+							style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+						>
+							<span className="text-red-600">计算社会科学</span>
+							<br />
+							<span className="text-gray-900">与国家治理实验室</span>
+						</h1>
+						<div className="h-1 w-32 bg-red-600 mx-auto"></div>
+						<p
+							className="text-2xl md:text-3xl font-light text-gray-700 mt-8"
+							style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+						>
+							学术资源共享交流平台
+						</p>
+					</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl mt-8">
-					<Button
-						as={Link}
-						href={'/discover'}
-						color="primary"
-						variant="shadow"
-						size="lg"
-						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
-						startContent={<Layers3 size={24} />}
-					>
-						浏览所有数据集
-					</Button>
-					<Button
-						as={Link}
-						href={'/casestudies'}
-						color="primary"
-						variant="shadow"
-						size="lg"
-						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
-						startContent={<BookCopy size={24} />}
-					>
-						浏览所有案例集
-					</Button>
-					<Button
-						as={Link}
-						href={'/upload'}
-						color="primary"
-						variant="shadow"
-						size="lg"
-						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
-						startContent={<FileUp size={24} />}
-					>
-						上传数据集
-					</Button>
-					<Button
-						as={Link}
-						href={'/upload-casestudy'}
-						color="primary"
-						variant="shadow"
-						size="lg"
-						className="h-20 text-lg font-semibold transition-transform hover:scale-105 active:scale-95"
-						startContent={<FileUp size={24} />}
-					>
-						上传案例集
-					</Button>
-				</div>
-			</section>
-
-
-
-			{/* Category Navigation Section */}
-			<section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-				<h2 className="text-3xl font-extrabold text-gray-900 text-center mb-12">
-					分类导航
-				</h2>
-				<div className="grid grid-cols-2 md:grid-cols-4 auto-rows-fr gap-4">
-					{categories.map((category, index) => {
-						let cardClass = "flex flex-col items-center justify-center p-6 text-center transform hover:scale-105 transition-transform duration-300 ease-in-out shadow-lg rounded-lg";
-						
-						// Apply special styling for specific cards to create an irregular layout
-						if (index === 0) {
-							cardClass += " md:col-span-2 md:row-span-2";
-						} else if (index === 5) {
-							cardClass += " md:col-span-2";
-						}
-
-						return (
-							<Card 
-								as={Link}
-								href={`/discover?catalog=${encodeURIComponent(category.name)}`}
-								isPressable 
-								key={index} 
-								className={cardClass}
-							>
-								<div className="mb-4">
-									{category.icon}
+					{/* Four Main Navigation Cards */}
+					<div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mt-20 mx-auto">
+						<Card
+							as={Link}
+							href={'/discover'}
+							className="w-52 h-52 bg-white border-2 border-red-100 hover:border-red-300 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+							isPressable
+						>
+							<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+								<div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors">
+									<Layers3 size={32} className="text-red-600" />
 								</div>
-								<h3 className="text-xl font-semibold text-gray-800">{category.name}</h3>
-							</Card>
-						);
-					})}
+								<div className="space-y-2">
+									<h3
+										className="text-xl font-medium text-gray-800"
+										style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+									>
+										浏览数据集
+									</h3>
+									<p className="text-gray-600 text-xs">
+										探索和发现丰富的学术数据资源
+									</p>
+								</div>
+							</CardBody>
+						</Card>
+
+						<Card
+							as={Link}
+							href={'/casestudies'}
+							className="w-52 h-52 bg-white border-2 border-red-100 hover:border-red-300 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+							isPressable
+						>
+							<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+								<div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors">
+									<BookCopy size={32} className="text-red-600" />
+								</div>
+								<div className="space-y-2">
+									<h3
+										className="text-xl font-medium text-gray-800"
+										style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+									>
+										浏览案例集
+									</h3>
+									<p className="text-gray-600 text-xs">
+										学习优秀的研究案例和方法
+									</p>
+								</div>
+							</CardBody>
+						</Card>
+
+						<Card
+							as={Link}
+							href={'/upload'}
+							className="w-52 h-52 bg-red-50 border-2 border-red-200 hover:border-red-400 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+							isPressable
+						>
+							<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+								<div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center group-hover:bg-red-200 transition-colors">
+									<FileUp size={32} className="text-red-700" />
+								</div>
+								<div className="space-y-2">
+									<h3
+										className="text-xl font-medium text-red-800"
+										style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+									>
+										上传数据集
+									</h3>
+									<p className="text-red-600 text-xs">
+										分享您的学术数据资源
+									</p>
+								</div>
+							</CardBody>
+						</Card>
+
+						<Card
+							as={Link}
+							href={'/upload-casestudy'}
+							className="w-52 h-52 bg-red-50 border-2 border-red-200 hover:border-red-400 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+							isPressable
+						>
+							<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+								<div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center group-hover:bg-red-200 transition-colors">
+									<FileUp size={32} className="text-red-700" />
+								</div>
+								<div className="space-y-2">
+									<h3
+										className="text-xl font-medium text-red-800"
+										style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+									>
+										上传案例集
+									</h3>
+									<p className="text-red-600 text-xs">
+										分享您的研究经验和成果
+									</p>
+								</div>
+							</CardBody>
+						</Card>
+					</div>
 				</div>
 			</section>
 
+			{/* Platform Features Section */}
+			<section className="py-32 px-8">
+				<div className="max-w-7xl mx-auto">
+					<div className="text-center mb-24">
+						<h2
+							className="text-4xl md:text-5xl font-light text-gray-900 mb-8"
+							style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+						>
+							平台功能特色
+						</h2>
+						<div className="h-1 w-20 bg-red-600 mx-auto"></div>
+						<p className="text-xl text-gray-600 mt-8 max-w-3xl mx-auto">
+							专为人文社会科学研究设计，提供安全、高效、专业的数据共享与管理服务
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+						<div className="text-center space-y-6">
+							<div className="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center">
+								<Database size={32} className="text-red-600" />
+							</div>
+							<div className="space-y-3">
+								<h3
+									className="text-2xl font-medium text-gray-900"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									规范数据管理
+								</h3>
+								<p className="text-gray-600 leading-relaxed">
+									专业的数据分类、标签和元数据管理，确保学术数据的规范性和可检索性
+								</p>
+							</div>
+						</div>
+
+						<div className="text-center space-y-6">
+							<div className="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center">
+								<Share2 size={32} className="text-red-600" />
+							</div>
+							<div className="space-y-3">
+								<h3
+									className="text-2xl font-medium text-gray-900"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									安全共享机制
+								</h3>
+								<p className="text-gray-600 leading-relaxed">
+									多层次的权限控制和访问管理，保护知识产权的同时促进学术交流
+								</p>
+							</div>
+						</div>
+
+						<div className="text-center space-y-6">
+							<div className="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center">
+								<Lock size={32} className="text-red-600" />
+							</div>
+							<div className="space-y-3">
+								<h3
+									className="text-2xl font-medium text-gray-900"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									隐私保护
+								</h3>
+								<p className="text-gray-600 leading-relaxed">
+									严格的隐私保护措施和数据加密，确保敏感信息的安全存储与使用
+								</p>
+							</div>
+						</div>
+
+						<div className="text-center space-y-6">
+							<div className="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center">
+								<BarChart3 size={32} className="text-red-600" />
+							</div>
+							<div className="space-y-3">
+								<h3
+									className="text-2xl font-medium text-gray-900"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									数据分析工具
+								</h3>
+								<p className="text-gray-600 leading-relaxed">
+									内置数据分析工具和可视化功能，支持多样化的研究方法和需求
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="mt-24 text-center">
+						<div className="inline-block">
+							<h3
+								className="text-3xl font-light text-gray-900 mb-4"
+								style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+							>
+								开始您的数据共享之旅
+							</h3>
+							<Button
+								as={Link}
+								href={'/discover'}
+								className="bg-red-600 text-white px-8 py-4 text-lg hover:bg-red-700 transition-colors shadow-lg hover:shadow-xl"
+								style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+							>
+								立即开始探索
+							</Button>
+						</div>
+					</div>
+				</div>
+			</section>
 		</DefaultLayout>
 	);
 } 
