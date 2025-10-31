@@ -17,7 +17,8 @@
       "Bash(wc:*)",
       "Bash(tail:*)",
       "Bash(grep:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(docker logs:*)"
     ],
     "deny": [],
     "ask": []

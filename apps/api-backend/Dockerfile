@@ -1,6 +1,11 @@
 # 使用官方 Bun 镜像作为基础镜像
 FROM oven/bun:1 AS base
 
+# 安装 OpenSSL（Prisma 需要）
+RUN apt-get update -y && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # 安装依赖阶段
