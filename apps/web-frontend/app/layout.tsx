@@ -1,15 +1,19 @@
 import type { Metadata } from 'next'
-import { Inter, Noto_Serif_SC } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import "./globals.css";
 import { Providers } from './providers'
 
-const inter = Inter({ subsets: ['latin'] })
-const notoSerifSC = Noto_Serif_SC({
-  weight: ['300', '400', '500', '600', '700'],
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-noto-serif-sc',
   display: 'swap',
 })
+
+// 使用系统字体作为后备，避免 Google Fonts 加载问题
+const fontConfig = `
+  font-family: ${inter.style.fontFamily}, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+`;
 
 export const metadata: Metadata = {
   title: 'UCASS DataShare - 人文社科数据分享平台',
@@ -23,7 +27,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" className={`${notoSerifSC.variable}`}>
+    <html lang="zh-CN">
+      <head>
+        <style dangerouslySetInnerHTML={{__html: `
+          :root {
+            --font-noto-serif-sc: "Noto Serif SC", "Source Han Serif SC", "思源宋体", serif;
+          }
+        `}} />
+      </head>
       <body className={inter.className}>
         <Providers>
           {children}
