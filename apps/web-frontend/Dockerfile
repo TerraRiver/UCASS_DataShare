@@ -21,6 +21,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# 确保 public 目录存在（即使为空）
+RUN mkdir -p public
+
 # 设置环境变量
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -39,11 +42,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# 复制 public 文件夹
+# 复制 public 文件夹（如果存在）
 COPY --from=builder /app/public ./public
 
 # 复制构建输出
-RUN mkdir .next
+RUN mkdir -p .next
 RUN chown nextjs:nodejs .next
 
 # 自动利用输出跟踪来减少镜像大小
