@@ -1,16 +1,6 @@
 # Bun 配置文件
+# Bun 会自动读取 tsconfig.json 中的 paths 配置来解析路径别名
 
 [install]
 # 配置包管理器
 registry = "https://registry.npmjs.org/"
-
-[run]
-# 配置运行时行为
-bun = "latest"
-
-# 配置模块解析
-[preload]
-# 预加载脚本（如果需要）
-
-# 配置路径别名（Bun 原生支持 tsconfig.json 的 paths）
-# Bun 会自动读取 tsconfig.json 中的 paths 配置
