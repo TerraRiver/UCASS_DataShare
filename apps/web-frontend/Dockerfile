@@ -1,6 +1,11 @@
 # 使用官方 Bun 镜像作为基础镜像
 FROM oven/bun:1 AS base
 
+# 安装 curl（健康检查需要）
+RUN apt-get update -y && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # 安装依赖阶段
 FROM base AS deps
 
