@@ -35,13 +35,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 构建 Next.js 应用
 RUN bun run build
 
-# 生产运行阶段
-FROM base AS runner
+# 生产运行阶段 - 使用 Node.js 运行以获得更好的性能
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# 安装 curl（健康检查需要）
+RUN apt-get update -y && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs
@@ -66,5 +71,5 @@ EXPOSE 30001
 ENV PORT=30001
 ENV HOSTNAME="0.0.0.0"
 
-# 启动应用
-CMD ["bun", "run", "server.js"]
+# 使用 Node.js 启动应用（而不是 Bun）
+CMD ["node", "server.js"]
