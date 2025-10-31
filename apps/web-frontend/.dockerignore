@@ -66,5 +66,5 @@ docker-compose*.yml
 .prettierrc
 .eslintrc.js
 .eslintrc.json
-postcss.config.js
-tailwind.config.ts
+# postcss.config.js - 保留用于 Tailwind CSS
+# tailwind.config.ts - 保留用于 Tailwind CSS
