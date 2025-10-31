@@ -17,9 +17,9 @@ const app = express();
 // 安全中间件
 app.use(helmet());
 
-// CORS配置
+// CORS配置 - 允许所有来源（生产环境建议配置具体域名）
 app.use(cors({
-  origin: ['http://localhost:3000'],
+  origin: true, // 允许所有来源
   credentials: true,
 }));
 
