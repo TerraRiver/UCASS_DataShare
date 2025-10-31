@@ -58,6 +58,6 @@ docker-compose*.yml
 .editorconfig
 .prettierrc
 .eslintrc.js
-tsconfig.json
+# tsconfig.json - 保留此文件以支持路径别名解析
 uploads/*
 !uploads/.gitkeep
