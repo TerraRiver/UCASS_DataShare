@@ -3,7 +3,7 @@
 import { Link } from "@nextui-org/link";
 import DefaultLayout from "@/layouts/default";
 import { Button, Card, CardBody } from "@nextui-org/react";
-import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3 } from "lucide-react";
+import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network } from "lucide-react";
 
 export default function Home() {
 	return (
@@ -127,6 +127,30 @@ export default function Home() {
 								</div>
 							</CardBody>
 						</Card>
+
+					<Card
+						as={Link}
+						href={'/explore'}
+						className="w-52 h-52 bg-white border-2 border-red-100 hover:border-red-300 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+						isPressable
+					>
+						<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+							<div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors">
+								<Network size={32} className="text-red-600" />
+							</div>
+							<div className="space-y-2">
+								<h3
+									className="text-xl font-medium text-gray-800"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									知识图谱探索
+								</h3>
+								<p className="text-gray-600 text-xs">
+									探索数据集与案例集的关联关系
+								</p>
+							</div>
+						</CardBody>
+					</Card>
 					</div>
 				</div>
 			</section>

@@ -104,7 +104,7 @@ export default function UploadPage() {
 
     // 限制文件数量不超过10个
     if (allFiles.length > 10) {
-      alert(`最多只能选择10个文件，当前已选择${selectedFiles.length}个文件，最多还能选择${10 - selectedFiles.length}个文件`)
+      alert(`最多只能选择10个文件,当前已选择${selectedFiles.length}个文件,最多还能选择${10 - selectedFiles.length}个文件`)
       event.target.value = '' // 清空文件选择
       return
     }
@@ -127,7 +127,7 @@ export default function UploadPage() {
 
     // 如果有重复文件，提醒用户
     if (duplicateFiles.length > 0) {
-      alert(`以下文件已存在，将跳过：\n${duplicateFiles.join('\n')}`)
+      alert(`以下文件已存在,将跳过:\n${duplicateFiles.join('\n')}`)
     }
 
     // 更新文件列表（只添加不重复的文件）
@@ -169,39 +169,39 @@ export default function UploadPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
-    
+
     const newFiles = Array.from(e.dataTransfer.files)
-    
+
     // 合并新文件和已选择的文件
     const allFiles = [...selectedFiles, ...newFiles]
-    
+
     // 限制文件数量不超过10个
     if (allFiles.length > 10) {
-      alert(`最多只能选择10个文件，当前已选择${selectedFiles.length}个文件，最多还能选择${10 - selectedFiles.length}个文件`)
+      alert(`最多只能选择10个文件,当前已选择${selectedFiles.length}个文件,最多还能选择${10 - selectedFiles.length}个文件`)
       return
     }
-    
+
     // 检查重复文件名
     const duplicateFiles: string[] = []
     const uniqueFiles: File[] = []
-    
+
     newFiles.forEach(newFile => {
-      const isDuplicate = selectedFiles.some(existingFile => 
+      const isDuplicate = selectedFiles.some(existingFile =>
         existingFile.name === newFile.name && existingFile.size === newFile.size
       )
-      
+
       if (isDuplicate) {
         duplicateFiles.push(newFile.name)
       } else {
         uniqueFiles.push(newFile)
       }
     })
-    
+
     // 如果有重复文件，提醒用户
     if (duplicateFiles.length > 0) {
-      alert(`以下文件已存在，将跳过：\n${duplicateFiles.join('\n')}`)
+      alert(`以下文件已存在,将跳过:\n${duplicateFiles.join('\n')}`)
     }
-    
+
     // 更新文件列表（只添加不重复的文件）
     const finalFiles = [...selectedFiles, ...uniqueFiles]
     setSelectedFiles(finalFiles)
@@ -290,7 +290,7 @@ export default function UploadPage() {
         setUploadResult({ success: false, message: result.error || '上传失败' })
       }
     } catch (error) {
-      setUploadResult({ success: false, message: '网络错误，请稍后再试' })
+      setUploadResult({ success: false, message: '网络错误,请稍后再试' })
     } finally {
       setUploading(false)
       setShowResultDialog(true)
@@ -311,7 +311,7 @@ export default function UploadPage() {
             </h1>
             <div className="h-1 w-20 bg-red-600 mx-auto mb-6"></div>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              分享您的研究数据集，为学术社区贡献宝贵资源
+              分享您的研究数据集,为学术社区贡献宝贵资源
             </p>
           </div>
 
@@ -401,7 +401,7 @@ export default function UploadPage() {
                 基本信息
               </CardTitle>
               <CardDescription className="text-gray-600 mt-2">
-                请填写数据集的基本信息，这些信息将帮助其他研究者更好地理解和使用您的数据
+                请填写数据集的基本信息,这些信息将帮助其他研究者更好地理解和使用您的数据
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-5 sm:space-y-6">
@@ -410,9 +410,9 @@ export default function UploadPage() {
                   <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                     数据集名称 <span className="text-red-500">*</span>
                   </Label>
-                  <Input 
-                    id="name" 
-                    {...register('name')} 
+                  <Input
+                    id="name"
+                    {...register('name')}
                     className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="请输入数据集名称"
                   />
@@ -428,9 +428,9 @@ export default function UploadPage() {
                   <Label htmlFor="catalog" className="text-sm font-medium text-gray-700">
                     数据集分类 <span className="text-red-500">*</span>
                   </Label>
-                  <select 
-                    id="catalog" 
-                    {...register('catalog')} 
+                  <select
+                    id="catalog"
+                    {...register('catalog')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                   >
                     <option value="">请选择数据集分类</option>
@@ -451,11 +451,11 @@ export default function UploadPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="summary" className="text-sm font-medium text-gray-700">
-                  简述 <span className="text-gray-400">(可选，最多30字符)</span>
+                  简述 <span className="text-gray-400">(可选,最多30字符)</span>
                 </Label>
-                <Input 
-                  id="summary" 
-                  {...register('summary')} 
+                <Input
+                  id="summary"
+                  {...register('summary')}
                   className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   placeholder="简要描述数据集的主要内容"
                 />
@@ -488,11 +488,11 @@ export default function UploadPage() {
                   <Label htmlFor="source" className="text-sm font-medium text-gray-700">
                     数据来源 <span className="text-red-500">*</span>
                   </Label>
-                  <Input 
-                    id="source" 
-                    {...register('source')} 
+                  <Input
+                    id="source"
+                    {...register('source')}
                     className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    placeholder="例如：国家统计局、某研究机构等"
+                    placeholder="例如:国家统计局、某研究机构等"
                   />
                   {errors.source && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
@@ -506,9 +506,9 @@ export default function UploadPage() {
                   <Label htmlFor="sourceDate" className="text-sm font-medium text-gray-700">
                     数据收集日期 <span className="text-gray-400">(可选)</span>
                   </Label>
-                  <Input 
-                    id="sourceDate" 
-                    {...register('sourceDate')} 
+                  <Input
+                    id="sourceDate"
+                    {...register('sourceDate')}
                     type="date"
                     className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
@@ -519,9 +519,9 @@ export default function UploadPage() {
                 <Label htmlFor="sourceUrl" className="text-sm font-medium text-gray-700">
                   数据来源URL <span className="text-gray-400">(可选)</span>
                 </Label>
-                <Input 
-                  id="sourceUrl" 
-                  {...register('sourceUrl')} 
+                <Input
+                  id="sourceUrl"
+                  {...register('sourceUrl')}
                   type="url"
                   className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   placeholder="https://example.com/data-source"
@@ -546,7 +546,7 @@ export default function UploadPage() {
                 推荐引用文献
               </CardTitle>
               <CardDescription className="text-gray-600 mt-2">
-                使用本数据集时推荐引用的文献（国标格式），可选填写
+                使用本数据集时推荐引用的文献(国标格式),可选填写
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 sm:p-6 space-y-4">
@@ -556,7 +556,7 @@ export default function UploadPage() {
                     <Textarea
                       value={citation}
                       onChange={(e) => updateCitation(index, e.target.value)}
-                      placeholder="例如：张三, 李四. 数据集名称[J]. 期刊名, 年份, 卷(期): 页码."
+                      placeholder="例如:张三, 李四. 数据集名称[J]. 期刊名, 年份, 卷(期): 页码."
                       rows={2}
                       className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                     />
@@ -590,7 +590,7 @@ export default function UploadPage() {
                 </div>
               ))}
               <p className="text-xs text-gray-500 mt-2">
-                💡 提示：请按照国标格式填写文献引用，可添加多条引用文献
+                💡 提示:请按照国标格式填写文献引用,可添加多条引用文献
               </p>
             </CardContent>
           </Card>
@@ -605,7 +605,7 @@ export default function UploadPage() {
                 文件上传
               </CardTitle>
               <CardDescription className="text-gray-600 mt-2">
-                支持任意文件格式，单次最多上传10个文件，单文件最大1GB
+                支持任意文件格式,单次最多上传10个文件,单文件最大1GB
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
@@ -628,9 +628,9 @@ export default function UploadPage() {
                           <CheckCircleIcon className="h-3.5 w-3.5 text-green-600" />
                         </div>
                         <div>
-                          <span className="font-medium">强烈建议包含 README.md 文件：</span>
+                          <span className="font-medium">强烈建议包含 README.md 文件:</span>
                           <span className="text-gray-600 block mt-1">
-                            README.md 将在数据集详情页自动渲染，用于详细介绍数据集的内容、使用方法、数据字段说明等。支持 Markdown 格式。
+                            README.md 将在数据集详情页自动渲染,用于详细介绍数据集的内容、使用方法、数据字段说明等。支持 Markdown 格式。
                           </span>
                         </div>
                       </div>
@@ -640,13 +640,13 @@ export default function UploadPage() {
                           <CheckCircleIcon className="h-3.5 w-3.5 text-blue-600" />
                         </div>
                         <div>
-                          <span className="font-medium">数据文件格式建议：</span>
+                          <span className="font-medium">数据文件格式建议:</span>
                           <div className="text-gray-600 mt-1 space-y-1">
-                            <div>• <span className="font-medium text-green-700">CSV / XLSX：</span>表格数据，支持在线预览</div>
-                            <div>• <span className="font-medium text-gray-700">PDF：</span>论文、报告等文档</div>
-                            <div>• <span className="font-medium text-gray-700">JSON：</span>结构化数据</div>
-                            <div>• <span className="font-medium text-gray-700">Python/R 脚本：</span>数据处理代码</div>
-                            <div>• <span className="font-medium text-gray-700">压缩包：</span>批量文件打包上传</div>
+                            <div>• <span className="font-medium text-green-700">CSV / XLSX:</span>表格数据,支持在线预览</div>
+                            <div>• <span className="font-medium text-gray-700">PDF:</span>论文、报告等文档</div>
+                            <div>• <span className="font-medium text-gray-700">JSON:</span>结构化数据</div>
+                            <div>• <span className="font-medium text-gray-700">Python/R 脚本:</span>数据处理代码</div>
+                            <div>• <span className="font-medium text-gray-700">压缩包:</span>批量文件打包上传</div>
                           </div>
                         </div>
                       </div>
@@ -656,11 +656,11 @@ export default function UploadPage() {
                           <BookOpenIcon className="h-3.5 w-3.5 text-amber-600" />
                         </div>
                         <div>
-                          <span className="font-medium">文件组织建议：</span>
+                          <span className="font-medium">文件组织建议:</span>
                           <div className="text-gray-600 mt-1 space-y-1">
-                            <div>• 使用清晰的文件命名（如：<code className="bg-white px-1 py-0.5 rounded text-xs">data_2024.csv</code>）</div>
+                            <div>• 使用清晰的文件命名(如:<code className="bg-white px-1 py-0.5 rounded text-xs">data_2024.csv</code>)</div>
                             <div>• 将相关文件打包在同一数据集中</div>
-                            <div>• 如有多个数据文件，建议在 README.md 中说明每个文件的用途</div>
+                            <div>• 如有多个数据文件,建议在 README.md 中说明每个文件的用途</div>
                           </div>
                         </div>
                       </div>
@@ -673,8 +673,8 @@ export default function UploadPage() {
                 {/* File Drop Zone */}
                 <div
                   className={`relative border-2 border-dashed rounded-xl p-6 sm:p-8 transition-all duration-300 ${
-                    isDragOver 
-                      ? 'border-red-400 bg-red-50' 
+                    isDragOver
+                      ? 'border-red-400 bg-red-50'
                       : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'
                   }`}
                   onDragOver={handleDragOver}
@@ -692,7 +692,7 @@ export default function UploadPage() {
                         {isDragOver ? '释放文件开始上传' : '拖拽文件到这里'}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        或者 
+                        或者
                         <label className="text-red-600 hover:text-red-500 cursor-pointer font-medium">
                           <span className="ml-1">点击选择文件</span>
                           <input
@@ -776,10 +776,10 @@ export default function UploadPage() {
                     className="text-lg font-medium text-gray-900"
                     style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
                   >
-                    准备提交？
+                    准备提交?
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    提交后，您的数据集将进入审核流程，通常在1-3个工作日内完成审核
+                    提交后,您的数据集将进入审核流程,通常在1-3个工作日内完成审核
                   </p>
                 </div>
                 <div className="flex space-x-3">
@@ -837,7 +837,7 @@ export default function UploadPage() {
               )}
             </div>
             <DialogFooter>
-              <Button 
+              <Button
                 onClick={() => setShowResultDialog(false)}
                 className="w-full"
               >
@@ -847,6 +847,7 @@ export default function UploadPage() {
           </DialogContent>
         </Dialog>
       </div>
+    </section>
     </div>
   )
-} 
+}

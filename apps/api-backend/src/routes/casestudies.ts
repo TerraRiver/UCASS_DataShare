@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { ENV } from '@/config/env';
 import multer from 'multer';
 import { z } from 'zod';
+import { optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 
 // Multer setup for file uploads
 const upload = multer({ dest: ENV.UPLOAD_DIR });
@@ -148,15 +149,13 @@ router.get('/', async (req, res) => {
 });
 
 // 获取单个案例集详情
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const caseStudy = await prisma.caseStudy.findFirst({
-      where: {
-        id,
-        isReviewed: true,
-        isVisible: true,
-      },
+    const isAdmin = !!req.adminUser; // 判断是否是管理员
+
+    const caseStudy = await prisma.caseStudy.findUnique({
+      where: { id },
       include: {
         files: {
           select: {
@@ -164,13 +163,19 @@ router.get('/:id', async (req, res) => {
             originalName: true,
             fileSize: true,
             fileType: true,
+            uploadTime: true,
           }
         }
       },
     });
 
     if (!caseStudy) {
-      return res.status(404).json({ error: '案例集不存在或未发布' });
+      return res.status(404).json({ error: '案例集不存在' });
+    }
+
+    // 如果不是管理员，并且案例集未审核或不可见，则拒绝访问
+    if (!isAdmin && (!caseStudy.isReviewed || !caseStudy.isVisible)) {
+      return res.status(403).json({ error: '案例集当前不可访问' });
     }
 
     res.json(caseStudy);
@@ -181,21 +186,23 @@ router.get('/:id', async (req, res) => {
 });
 
 // 获取案例集中的特定文件内容（用于读取README.md）
-router.get('/:id/files/:fileId', async (req, res) => {
+router.get('/:id/files/:fileId', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id, fileId } = req.params;
+    const isAdmin = !!req.adminUser;
 
-    // 验证案例集是否存在且已发布
-    const caseStudy = await prisma.caseStudy.findFirst({
-      where: {
-        id,
-        isReviewed: true,
-        isVisible: true,
-      },
+    // 验证案例集是否存在
+    const caseStudy = await prisma.caseStudy.findUnique({
+      where: { id },
     });
 
     if (!caseStudy) {
-      return res.status(404).json({ error: '案例集不存在或未发布' });
+      return res.status(404).json({ error: '案例集不存在' });
+    }
+
+    // 如果不是管理员，检查案例集是否可访问
+    if (!isAdmin && (!caseStudy.isReviewed || !caseStudy.isVisible)) {
+      return res.status(403).json({ error: '案例集当前不可访问' });
     }
 
     // 查找文件
@@ -268,16 +275,23 @@ router.get('/:id/files/:fileId', async (req, res) => {
 });
 
 // 下载整个案例集 (打包为zip)
-router.get('/:id/download', async (req, res) => {
+router.get('/:id/download', optionalAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
+    const isAdmin = !!req.adminUser;
+
     const caseStudy = await prisma.caseStudy.findUnique({
       where: { id },
       include: { files: true },
     });
 
-    if (!caseStudy || !caseStudy.isReviewed || !caseStudy.isVisible) {
-      return res.status(404).json({ error: '案例集不存在或无法下载' });
+    if (!caseStudy) {
+      return res.status(404).json({ error: '案例集不存在' });
+    }
+
+    // 如果不是管理员，检查案例集是否可下载
+    if (!isAdmin && (!caseStudy.isReviewed || !caseStudy.isVisible)) {
+      return res.status(403).json({ error: '案例集当前不可下载' });
     }
 
     // 更新下载计数

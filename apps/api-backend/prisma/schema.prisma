@@ -40,6 +40,7 @@ model Dataset {
   downloadCount        Int      @default(0) @map("download_count")
 
   files                DatasetFile[]
+  relatedCaseStudies   CaseStudyDataset[]
 
   @@map("datasets")
 }
@@ -82,6 +83,7 @@ model CaseStudy {
   downloadCount Int      @default(0) @map("download_count")
 
   files         CaseStudyFile[]
+  relatedDatasets CaseStudyDataset[]
 
   @@map("case_studies")
 }
@@ -100,4 +102,18 @@ model CaseStudyFile {
   caseStudy    CaseStudy @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
 
   @@map("case_study_files")
+}
+
+// 案例集与数据集的多对多关系表
+model CaseStudyDataset {
+  id          String   @id @default(cuid())
+  caseStudyId String   @map("case_study_id")
+  datasetId   String   @map("dataset_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  caseStudy   CaseStudy @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
+  dataset     Dataset   @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@unique([caseStudyId, datasetId])
+  @@map("case_study_datasets")
 }

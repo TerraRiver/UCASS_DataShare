@@ -136,9 +136,14 @@ fetch('${window.location.origin}/api/datasets/${dataset.id}/download/FILE_ID')
           setSelectedPreviewFile(firstPreviewable);
         }
 
-        const readmeFile = data.dataset.files?.find((file: DatasetFile) =>
-          file.originalName.toLowerCase() === 'readme.md'
-        );
+        // 查找 README.md 文件（不区分大小写，支持多种变体）
+        const readmeFile = data.dataset.files?.find((file: DatasetFile) => {
+          const fileName = file.originalName.toLowerCase();
+          return fileName === 'readme.md' ||
+                 fileName === 'readme.txt' ||
+                 fileName.endsWith('/readme.md') ||
+                 fileName.endsWith('\\readme.md');
+        });
 
         if (readmeFile) {
           fetchReadme(id, readmeFile.id);

@@ -64,17 +64,27 @@ export default function CaseStudyDetailPage({ params }: { params: { id: string }
   const fetchCaseStudy = async (id: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/casestudies/${id}`);
+      const token = localStorage.getItem('admin_token');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/casestudies/${id}`, { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch case study');
       }
       const data = await response.json();
       setCaseStudy(data);
 
-      // 自动加载 README.md
-      const readmeFile = data.files?.find((file: CaseStudyFile) =>
-        file.originalName.toLowerCase() === 'readme.md'
-      );
+      // 自动加载 README.md（不区分大小写，支持多种变体）
+      const readmeFile = data.files?.find((file: CaseStudyFile) => {
+        const fileName = file.originalName.toLowerCase();
+        return fileName === 'readme.md' ||
+               fileName === 'readme.txt' ||
+               fileName.endsWith('/readme.md') ||
+               fileName.endsWith('\\readme.md');
+      });
 
       if (readmeFile) {
         fetchReadme(id, readmeFile.id);

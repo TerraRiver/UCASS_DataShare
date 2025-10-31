@@ -10,6 +10,7 @@ import authRoutes from './routes/auth';
 import datasetRoutes from './routes/datasets';
 import caseStudyRoutes from './routes/casestudies';
 import adminRoutes from './routes/admin';
+import relationshipRoutes from './routes/relationships';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/datasets', datasetRoutes);
 app.use('/api/casestudies', caseStudyRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/relationships', relationshipRoutes);
 
 // 根路径
 app.get('/', (req, res) => {
