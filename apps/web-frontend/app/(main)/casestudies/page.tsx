@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Button, Input, Select, SelectItem, Checkbox, CheckboxGroup
@@ -109,7 +109,7 @@ const CaseStudyCard = ({ caseStudy }: { caseStudy: CaseStudy }) => (
   </Link>
 );
 
-export default function CaseStudiesPage() {
+function CaseStudiesPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -248,9 +248,15 @@ export default function CaseStudiesPage() {
               startContent={<Filter className="w-4 h-4 text-gray-400" />}
             >
               <SelectItem key="all">全部学科</SelectItem>
-              {ALL_DISCIPLINES.map((discipline) => (
-                <SelectItem key={discipline}>{discipline}</SelectItem>
-              ))}
+              <SelectItem key="政治学">政治学</SelectItem>
+              <SelectItem key="经济学">经济学</SelectItem>
+              <SelectItem key="社会学">社会学</SelectItem>
+              <SelectItem key="传统与现代文化">传统与现代文化</SelectItem>
+              <SelectItem key="法学">法学</SelectItem>
+              <SelectItem key="新闻传播">新闻传播</SelectItem>
+              <SelectItem key="计算科学">计算科学</SelectItem>
+              <SelectItem key="数学">数学</SelectItem>
+              <SelectItem key="其他">其他</SelectItem>
             </Select>
 
             {/* Sort */}
@@ -352,5 +358,20 @@ export default function CaseStudiesPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function CaseStudiesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-red-600"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    }>
+      <CaseStudiesPageContent />
+    </Suspense>
   );
 }

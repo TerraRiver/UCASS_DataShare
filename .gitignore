@@ -54,5 +54,12 @@ prisma/migrations/
 
 # Uploads
 uploads/
-*.log 
+*.log
 *.mp4
+
+# Docker
+.env
+docker-compose.override.yml
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt

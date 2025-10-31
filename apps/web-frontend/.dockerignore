@@ -1,0 +1,70 @@
+# 依赖
+node_modules
+.pnp
+.pnp.js
+bun.lockb
+
+# 测试
+coverage
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+__tests__
+
+# Next.js
+.next
+out
+
+# 生产构建
+dist
+build
+
+# 调试
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+.pnpm-debug.log*
+
+# 本地环境变量
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# 编辑器和IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 文档
+*.md
+README.md
+LICENSE
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# 其他
+.editorconfig
+.prettierrc
+.eslintrc.js
+.eslintrc.json
+postcss.config.js
+tailwind.config.ts

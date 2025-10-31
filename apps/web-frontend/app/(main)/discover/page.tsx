@@ -285,9 +285,15 @@ function DiscoverPageContent() {
               startContent={<Filter className="w-4 h-4 text-gray-400" />}
             >
               <SelectItem key="all">全部分类</SelectItem>
-              {ALL_CATEGORIES.map((cat) => (
-                <SelectItem key={cat}>{cat}</SelectItem>
-              ))}
+              <SelectItem key="政治学">政治学</SelectItem>
+              <SelectItem key="经济学">经济学</SelectItem>
+              <SelectItem key="社会学">社会学</SelectItem>
+              <SelectItem key="传统与现代文化">传统与现代文化</SelectItem>
+              <SelectItem key="法学">法学</SelectItem>
+              <SelectItem key="新闻传播">新闻传播</SelectItem>
+              <SelectItem key="计算科学">计算科学</SelectItem>
+              <SelectItem key="数学">数学</SelectItem>
+              <SelectItem key="其他">其他</SelectItem>
             </Select>
 
             {/* Sort */}
