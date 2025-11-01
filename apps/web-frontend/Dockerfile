@@ -1,3 +1,7 @@
+# =====================================================
+# Dockerfile for Next.js in Bun Workspaces Monorepo
+# =====================================================
+
 # 使用官方 Bun 镜像作为基础镜像
 FROM oven/bun:1 AS base
 
@@ -6,36 +10,52 @@ RUN apt-get update -y && \
     apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/*
 
-# 安装依赖阶段
+# =====================================================
+# 依赖安装阶段 - 处理 Monorepo 结构
+# =====================================================
 FROM base AS deps
 
 WORKDIR /app
 
-# 复制 package.json
+# 1. 复制根目录的 package.json（包含 workspaces 配置）
 COPY package.json bun.lockb* ./
 
-# 安装依赖
+# 2. 复制所有 workspace 的 package.json
+COPY apps/web-frontend/package.json ./apps/web-frontend/
+COPY apps/api-backend/package.json ./apps/api-backend/
+
+# 3. 安装所有依赖（Bun 会自动处理 workspaces）
 RUN bun install --frozen-lockfile
 
+# =====================================================
 # 构建阶段
+# =====================================================
 FROM base AS builder
 
 WORKDIR /app
 
-# 复制依赖
+# 复制根目录的 node_modules（包含提升的依赖）
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-# 确保 public 目录存在（即使为空）
-RUN mkdir -p public
+# 复制根目录的 package.json
+COPY package.json ./
+
+# 复制整个前端项目
+COPY apps/web-frontend ./apps/web-frontend
+
+# 确保 public 目录存在
+RUN mkdir -p apps/web-frontend/public
 
 # 设置环境变量
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# 构建 Next.js 应用
+# 进入前端目录并构建
+WORKDIR /app/apps/web-frontend
 RUN bun run build
 
-# 生产运行阶段 - 使用 Node.js 运行以获得更好的性能
+# =====================================================
+# 生产运行阶段 - 使用 Node.js
+# =====================================================
 FROM node:20-slim AS runner
 
 WORKDIR /app
@@ -52,16 +72,14 @@ RUN apt-get update -y && \
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# 复制 public 文件夹（如果存在）
-COPY --from=builder /app/public ./public
+# 复制 standalone 输出（包含 monorepo 结构）
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/standalone ./
 
-# 复制构建输出
-RUN mkdir -p .next
-RUN chown nextjs:nodejs .next
+# 复制静态文件到正确位置（相对于 standalone 输出）
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/static ./apps/web-frontend/.next/static
 
-# 自动利用输出跟踪来减少镜像大小
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# 复制 public 文件夹到正确位置
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/public ./apps/web-frontend/public
 
 USER nextjs
 
@@ -71,5 +89,5 @@ EXPOSE 30001
 ENV PORT=30001
 ENV HOSTNAME="0.0.0.0"
 
-# 使用 Node.js 启动应用（而不是 Bun）
+# 使用 Node.js 启动应用
 CMD ["node", "server.js"]

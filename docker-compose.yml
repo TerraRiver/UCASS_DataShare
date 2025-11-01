@@ -61,8 +61,8 @@ services:
   # 前端 Web 服务
   web:
     build:
-      context: ./apps/web-frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./apps/web-frontend/Dockerfile
     container_name: ucass_web
     restart: unless-stopped
     depends_on:

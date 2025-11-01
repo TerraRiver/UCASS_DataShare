@@ -1,0 +1,85 @@
+# =====================================================
+# .dockerignore for Monorepo Root
+# =====================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 依赖（在 Dockerfile 中安装）
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# 构建输出（在 Dockerfile 中生成）
+**/.next
+**/out
+**/dist
+**/build
+
+# 测试文件
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/__tests__
+**/coverage
+
+# 调试日志
+**/*-debug.log*
+**/.pnpm-debug.log*
+
+# 环境变量（通过 docker-compose 传入）
+**/.env
+**/.env*.local
+
+# TypeScript
+**/*.tsbuildinfo
+**/next-env.d.ts
+
+# 编辑器和IDE
+.vscode
+.idea
+**/*.swp
+**/*.swo
+**/*~
+.DS_Store
+
+# 文档
+*.md
+!apps/*/README.md
+LICENSE
+
+# Docker 相关
+**/Dockerfile
+**/.dockerignore
+docker-compose*.yml
+
+# 部署脚本
+deploy.sh
+backup.sh
+restore.sh
+monitor.sh
+
+# 数据目录
+database/
+uploads/
+
+# Vercel
+**/.vercel
+
+# 其他配置文件
+.editorconfig
+.prettierrc
+**/.eslintrc.js
+**/.eslintrc.json
+
+# 保留这些文件（用于构建）
+!package.json
+!bun.lockb
+!apps/web-frontend/package.json
+!apps/api-backend/package.json
+!apps/web-frontend/tailwind.config.ts
+!apps/web-frontend/postcss.config.js
+!apps/web-frontend/next.config.js
