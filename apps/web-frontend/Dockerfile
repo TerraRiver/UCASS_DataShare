@@ -48,6 +48,7 @@ RUN mkdir -p apps/web-frontend/public
 
 # 设置环境变量
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PATH=/app/node_modules/.bin:$PATH
 
 # 进入前端目录并构建
 WORKDIR /app/apps/web-frontend
