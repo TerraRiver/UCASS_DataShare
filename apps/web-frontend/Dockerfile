@@ -80,12 +80,13 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # 复制 standalone 输出（包含 monorepo 结构）
+# standalone 输出已经包含了必要的依赖，但需要正确的目录结构
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/standalone ./
 
-# 复制静态文件到正确位置（相对于 standalone 输出）
+# 复制静态文件到正确位置
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/static ./apps/web-frontend/.next/static
 
-# 复制 public 文件夹到正确位置
+# 复制 public 文件夹
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/public ./apps/web-frontend/public
 
 USER nextjs
@@ -96,5 +97,5 @@ EXPOSE 30001
 ENV PORT=30001
 ENV HOSTNAME="0.0.0.0"
 
-# 使用 Node.js 启动应用
-CMD ["node", "server.js"]
+# standalone 的启动文件应该在 apps/web-frontend/server.js
+CMD ["node", "apps/web-frontend/server.js"]
