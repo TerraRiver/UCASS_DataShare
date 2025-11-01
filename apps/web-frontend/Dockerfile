@@ -80,20 +80,21 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # 复制 standalone 输出（包含 monorepo 结构）
-# standalone 输出已经包含了必要的依赖，但需要正确的目录结构
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/standalone ./
+
+# 手动复制 next 模块（standalone 输出可能不完整）
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/next ./node_modules/next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@next ./node_modules/@next
+
+# 复制其他可能缺失的关键依赖
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/react ./node_modules/react
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/react-dom ./node_modules/react-dom
 
 # 复制静态文件到正确位置
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/static ./apps/web-frontend/.next/static
 
 # 复制 public 文件夹
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/public ./apps/web-frontend/public
-
-# 调试：检查 standalone 输出结构
-RUN echo "=== Checking standalone structure ===" && \
-    ls -la /app && \
-    echo "--- Looking for server.js ---" && \
-    find /app -name "*.server.js" -o -name "server.js" 2>/dev/null || echo "No server.js found"
 
 USER nextjs
 
