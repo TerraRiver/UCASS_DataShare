@@ -103,5 +103,5 @@ EXPOSE 30001
 ENV PORT=30001
 ENV HOSTNAME="0.0.0.0"
 
-# standalone 的启动文件应该在 apps/web-frontend/server.js
-CMD ["node", "apps/web-frontend/server.js"]
+# standalone 输出将 server.js 放在根目录
+CMD ["node", "server.js"]
