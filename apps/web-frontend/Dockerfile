@@ -60,6 +60,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app/apps/web-frontend
 RUN bunx next build
 
+# 切回根目录，方便后续复制
+WORKDIR /app
+
 # =====================================================
 # 生产运行阶段 - 使用 Node.js
 # =====================================================
