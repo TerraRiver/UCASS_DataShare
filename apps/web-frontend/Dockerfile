@@ -89,6 +89,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/.next/static ./
 # 复制 public 文件夹
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web-frontend/public ./apps/web-frontend/public
 
+# 调试：检查 standalone 输出结构
+RUN echo "=== Checking standalone structure ===" && \
+    ls -la /app && \
+    echo "--- Looking for server.js ---" && \
+    find /app -name "*.server.js" -o -name "server.js" 2>/dev/null || echo "No server.js found"
+
 USER nextjs
 
 # 暴露端口
