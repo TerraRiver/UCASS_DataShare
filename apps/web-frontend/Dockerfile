@@ -48,11 +48,16 @@ RUN mkdir -p apps/web-frontend/public
 
 # 设置环境变量
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PATH=/app/node_modules/.bin:$PATH
 
-# 进入前端目录并构建
-WORKDIR /app/apps/web-frontend
-RUN bun run build
+# 调试：检查 node_modules 结构
+RUN echo "=== Checking node_modules structure ===" && \
+    ls -la /app/node_modules/.bin/ | head -20 || echo "No /app/node_modules/.bin/" && \
+    ls -la /app/apps/web-frontend/node_modules/.bin/ | head -20 || echo "No workspace node_modules/.bin/" && \
+    echo "=== Checking next location ===" && \
+    which next || find /app -name "next" -type f 2>/dev/null | head -5
+
+# 在根目录构建前端项目（使用 --filter 或直接调用）
+RUN cd /app/apps/web-frontend && /app/node_modules/.bin/next build
 
 # =====================================================
 # 生产运行阶段 - 使用 Node.js
