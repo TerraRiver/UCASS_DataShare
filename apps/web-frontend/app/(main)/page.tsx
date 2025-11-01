@@ -1,8 +1,7 @@
 'use client'
 
-import { Link } from "@nextui-org/link";
 import DefaultLayout from "@/layouts/default";
-import { Button, Card, CardBody } from "@nextui-org/react";
+import { Button, Card, CardBody, Link } from "@nextui-org/react";
 import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network } from "lucide-react";
 
 export default function Home() {
