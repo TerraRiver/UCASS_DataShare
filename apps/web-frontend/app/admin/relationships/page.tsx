@@ -88,7 +88,7 @@ export default function RelationshipsManagementPage() {
       if (response.ok) {
         const data = await response.json()
         // 将现有关系转换为Set，用于UI显示
-        const relationshipIds = new Set(data.datasets.map((ds: Dataset) => ds.id))
+        const relationshipIds = new Set<string>(data.datasets.map((ds: Dataset) => ds.id))
         setSelectedDatasets(relationshipIds)
       }
     } catch (error) {

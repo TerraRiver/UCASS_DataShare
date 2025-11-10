@@ -117,3 +117,32 @@ model CaseStudyDataset {
   @@unique([caseStudyId, datasetId])
   @@map("case_study_datasets")
 }
+
+// RAG 向量化内容表
+model EmbeddedContent {
+  id          String   @id @default(cuid())
+  contentType String   @map("content_type") // 'dataset' | 'casestudy'
+  contentId   String   @map("content_id")   // 关联的 Dataset 或 CaseStudy ID
+  title       String                         // 标题
+  content     String   @db.Text             // 文本内容
+  embedding   String   @db.Text             // 向量（存储为 JSON 字符串）
+  metadata    Json?                          // 额外元数据
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([contentType, contentId])
+  @@map("embedded_contents")
+}
+
+// 系统配置表
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique  // 配置项的键名
+  value     String   @db.Text // 配置项的值
+  category  String   @default("general") // 配置分类：general, api, rag等
+  isSecret  Boolean  @default(false) @map("is_secret") // 是否为敏感信息（如API key）
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

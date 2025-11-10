@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Button, Input, Select, SelectItem, Checkbox, CheckboxGroup
@@ -109,7 +109,7 @@ const CaseStudyCard = ({ caseStudy }: { caseStudy: CaseStudy }) => (
   </Link>
 );
 
-export default function CaseStudiesPage() {
+function CaseStudiesPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -250,7 +250,7 @@ export default function CaseStudiesPage() {
               <SelectItem key="all">全部学科</SelectItem>
               {ALL_DISCIPLINES.map((discipline) => (
                 <SelectItem key={discipline}>{discipline}</SelectItem>
-              ))}
+              )) as any}
             </Select>
 
             {/* Sort */}
@@ -352,5 +352,13 @@ export default function CaseStudiesPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function CaseStudiesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">加载中...</div>}>
+      <CaseStudiesPageContent />
+    </Suspense>
   );
 }

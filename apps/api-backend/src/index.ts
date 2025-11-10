@@ -11,6 +11,8 @@ import datasetRoutes from './routes/datasets';
 import caseStudyRoutes from './routes/casestudies';
 import adminRoutes from './routes/admin';
 import relationshipRoutes from './routes/relationships';
+import ragRoutes from './routes/rag';
+import settingsRoutes from './routes/settings';
 
 const app = express();
 
@@ -19,7 +21,7 @@ app.use(helmet());
 
 // CORS配置
 app.use(cors({
-  origin: ['http://localhost:3000'],
+  origin: ['http://localhost:3000', 'http://localhost:30001'],
   credentials: true,
 }));
 
@@ -45,6 +47,8 @@ app.use('/api/datasets', datasetRoutes);
 app.use('/api/casestudies', caseStudyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/relationships', relationshipRoutes);
+app.use('/api/rag', ragRoutes);
+app.use('/api/admin', settingsRoutes);
 
 // 根路径
 app.get('/', (req, res) => {
@@ -56,6 +60,9 @@ app.get('/', (req, res) => {
       datasets: '/api/datasets',
       casestudies: '/api/casestudies',
       admin: '/api/admin',
+      relationships: '/api/relationships',
+      rag: '/api/rag',
+      settings: '/api/admin/settings',
       health: '/health',
     },
   });

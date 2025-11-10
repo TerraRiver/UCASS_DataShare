@@ -25,6 +25,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "openai": "^6.8.1",
     "pdf-parse": "^2.2.0",
     "prisma": "^5.7.0",
     "xlsx": "^0.18.5",

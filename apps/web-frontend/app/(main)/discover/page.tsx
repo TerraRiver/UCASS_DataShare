@@ -287,7 +287,7 @@ function DiscoverPageContent() {
               <SelectItem key="all">全部分类</SelectItem>
               {ALL_CATEGORIES.map((cat) => (
                 <SelectItem key={cat}>{cat}</SelectItem>
-              ))}
+              )) as any}
             </Select>
 
             {/* Sort */}

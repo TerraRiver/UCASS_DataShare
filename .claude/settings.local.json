@@ -16,7 +16,14 @@
       "Bash(npx prisma db push:*)",
       "Bash(wc:*)",
       "Bash(tail:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtaHNzOTlrbTAwMDBtZmp6NGhvZWp3YXEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzYyNzc2OTU4LCJleHAiOjE3NjI4NjMzNTh9.4SCAzZjyh91VtqHNU9JDstx97p3tyebi4kscAK8nXb8\")",
+      "Bash(lsof:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill //PID 47712 //F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 47712 -Force\")"
     ],
     "deny": [],
     "ask": []

@@ -63,7 +63,7 @@ export default function ExplorePage() {
     }
   }
 
-  const getNodeColor = (node: Node) => {
+  const getNodeColor = (node: any) => {
     if (node.type === 'dataset') {
       return '#ef4444' // 红色 - 数据集
     } else {
@@ -71,13 +71,13 @@ export default function ExplorePage() {
     }
   }
 
-  const getNodeSize = (node: Node) => {
+  const getNodeSize = (node: any) => {
     // 根据下载次数调整节点大小
     const downloadCount = node.data?.downloadCount || 0
     return Math.max(5, Math.min(15, 5 + downloadCount / 10))
   }
 
-  const handleNodeClick = useCallback((node: Node) => {
+  const handleNodeClick = useCallback((node: any) => {
     setSelectedNode(node)
   }, [])
 
@@ -341,7 +341,7 @@ export default function ExplorePage() {
 
                           // Draw label background
                           ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-                          ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + getNodeSize(node) + 2, ...bckgDimensions)
+                          ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + getNodeSize(node) + 2, bckgDimensions[0], bckgDimensions[1])
 
                           // Draw label text
                           ctx.textAlign = 'center'

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody, Divider, Button } from "@nextui-org/react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, TrendingUpIcon, FileTextIcon, ArrowRightIcon, LinkIcon } from "lucide-react"
+import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, TrendingUpIcon, FileTextIcon, ArrowRightIcon, LinkIcon, Sparkles, Settings } from "lucide-react"
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* 管理入口 - 移到最上方 */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {/* 数据集管理区域 */}
         <Card className="shadow-lg hover:shadow-xl transition-all border-2 border-transparent hover:border-red-200">
           <CardHeader className="border-b border-gray-100 p-6">
@@ -279,6 +279,100 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                 <span>支持可视化探索</span>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* RAG向量化管理区域 */}
+        <Card className="shadow-lg hover:shadow-xl transition-all border-2 border-transparent hover:border-red-200">
+          <CardHeader className="border-b border-gray-100 p-6">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl">
+                  <Sparkles className="w-7 h-7 text-orange-600" />
+                </div>
+                <div>
+                  <h2
+                    className="text-xl font-medium text-gray-900"
+                    style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                  >
+                    RAG 向量化管理
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">AI 智能搜索向量管理</p>
+                </div>
+              </div>
+              <Button
+                as={Link}
+                href="/admin/rag"
+                className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                endContent={<ArrowRightIcon className="w-4 h-4" />}
+              >
+                进入管理
+              </Button>
+            </div>
+          </CardHeader>
+          <Divider/>
+          <CardBody className="p-6">
+            <div className="text-sm text-gray-600 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span>内容向量化管理</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span>批量向量化操作</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span>向量覆盖率统计</span>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* 系统配置区域 */}
+        <Card className="shadow-lg hover:shadow-xl transition-all border-2 border-transparent hover:border-red-200">
+          <CardHeader className="border-b border-gray-100 p-6">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <Settings className="w-7 h-7 text-gray-600" />
+                </div>
+                <div>
+                  <h2
+                    className="text-xl font-medium text-gray-900"
+                    style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                  >
+                    系统配置
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">API密钥和系统设置</p>
+                </div>
+              </div>
+              <Button
+                as={Link}
+                href="/admin/settings"
+                className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                endContent={<ArrowRightIcon className="w-4 h-4" />}
+              >
+                进入管理
+              </Button>
+            </div>
+          </CardHeader>
+          <Divider/>
+          <CardBody className="p-6">
+            <div className="text-sm text-gray-600 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                <span>DeepSeek API 配置</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                <span>系统参数设置</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                <span>安全与权限管理</span>
               </div>
             </div>
           </CardBody>

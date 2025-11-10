@@ -3,7 +3,7 @@
 import { Link } from "@nextui-org/link";
 import DefaultLayout from "@/layouts/default";
 import { Button, Card, CardBody } from "@nextui-org/react";
-import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network } from "lucide-react";
+import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network, Sparkles } from "lucide-react";
 
 export default function Home() {
 	return (
@@ -147,6 +147,30 @@ export default function Home() {
 								</h3>
 								<p className="text-gray-600 text-xs">
 									探索数据集与案例集的关联关系
+								</p>
+							</div>
+						</CardBody>
+					</Card>
+
+					<Card
+						as={Link}
+						href={'/ai-assistant'}
+						className="w-52 h-52 bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 hover:border-orange-400 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+						isPressable
+					>
+						<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+							<div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+								<Sparkles size={32} className="text-white" />
+							</div>
+							<div className="space-y-2">
+								<h3
+									className="text-xl font-medium text-orange-900"
+									style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								>
+									AI 智能助手
+								</h3>
+								<p className="text-orange-700 text-xs font-medium">
+									与 AI 交流，快速找到所需资源
 								</p>
 							</div>
 						</CardBody>

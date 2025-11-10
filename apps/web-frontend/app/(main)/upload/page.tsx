@@ -17,7 +17,7 @@ import { ArrowLeftIcon, UploadIcon, CheckCircleIcon, AlertCircleIcon, FileIcon, 
 const uploadSchema = z.object({
   name: z.string().min(1, '数据集名称不能为空'),
   catalog: z.string().min(1, '请选择数据集分类'),
-  summary: z.string().max(30, '简述不能超过30个字符').optional(),
+  summary: z.string().max(50, '简述不能超过50个字符').optional(),
   source: z.string().min(1, '数据来源不能为空'),
   sourceUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
   sourceDate: z.string().optional(),
@@ -451,7 +451,7 @@ export default function UploadPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="summary" className="text-sm font-medium text-gray-700">
-                  简述 <span className="text-gray-400">(可选,最多30字符)</span>
+                  简述 <span className="text-gray-400">(可选,最多50字符)</span>
                 </Label>
                 <Input
                   id="summary"
