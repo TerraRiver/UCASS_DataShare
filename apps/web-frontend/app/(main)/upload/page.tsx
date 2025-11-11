@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -38,6 +38,8 @@ const categories = [
   '其他'
 ]
 
+const MAX_FILES = 15
+
 export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -45,6 +47,15 @@ export default function UploadPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [showResultDialog, setShowResultDialog] = useState(false)
   const [citations, setCitations] = useState<string[]>([''])
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const folderInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', 'true')
+      folderInputRef.current.setAttribute('directory', 'true')
+    }
+  }, [])
 
   const {
     register,
@@ -96,49 +107,155 @@ export default function UploadPage() {
   }, [formData, selectedFiles])
 
   // 处理文件选择
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = Array.from(event.target.files || [])
+  const getFileDisplayName = (file: File) => {
+    const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath
+    return relativePath && relativePath.length > 0 ? relativePath : file.name
+  }
 
-    // 合并新文件和已选择的文件
-    const allFiles = [...selectedFiles, ...newFiles]
+  const getFileIdentifier = (file: File) => `${getFileDisplayName(file)}-${file.size}`
 
-    // 限制文件数量不超过10个
-    if (allFiles.length > 10) {
-      alert(`最多只能选择10个文件,当前已选择${selectedFiles.length}个文件,最多还能选择${10 - selectedFiles.length}个文件`)
-      event.target.value = '' // 清空文件选择
-      return
-    }
+  const mergeFiles = (currentFiles: File[], incomingFiles: File[]) => {
+    const duplicates: string[] = []
+    const uniqueIncoming: File[] = []
+    const existingIds = new Set(currentFiles.map(getFileIdentifier))
 
-    // 检查重复文件名
-    const duplicateFiles: string[] = []
-    const uniqueFiles: File[] = []
-
-    newFiles.forEach(newFile => {
-      const isDuplicate = selectedFiles.some(existingFile =>
-        existingFile.name === newFile.name && existingFile.size === newFile.size
-      )
+    incomingFiles.forEach(file => {
+      const identifier = getFileIdentifier(file)
+      const isDuplicate =
+        existingIds.has(identifier) ||
+        uniqueIncoming.some(existing => getFileIdentifier(existing) === identifier)
 
       if (isDuplicate) {
-        duplicateFiles.push(newFile.name)
+        duplicates.push(getFileDisplayName(file))
       } else {
-        uniqueFiles.push(newFile)
+        uniqueIncoming.push(file)
       }
     })
 
-    // 如果有重复文件，提醒用户
-    if (duplicateFiles.length > 0) {
-      alert(`以下文件已存在,将跳过:\n${duplicateFiles.join('\n')}`)
+    const availableSlots = MAX_FILES - currentFiles.length
+
+    if (availableSlots <= 0) {
+      return {
+        nextFiles: currentFiles,
+        duplicates,
+        addedCount: 0,
+        truncatedCount: uniqueIncoming.length,
+        limitReached: uniqueIncoming.length > 0
+      }
     }
 
-    // 更新文件列表（只添加不重复的文件）
-    const finalFiles = [...selectedFiles, ...uniqueFiles]
-    setSelectedFiles(finalFiles)
+    const acceptedFiles = uniqueIncoming.slice(0, availableSlots)
+    const truncatedCount = uniqueIncoming.length - acceptedFiles.length
 
-    // 清空input值，以便可以重新选择相同文件
+    return {
+      nextFiles: acceptedFiles.length ? [...currentFiles, ...acceptedFiles] : currentFiles,
+      duplicates,
+      addedCount: acceptedFiles.length,
+      truncatedCount,
+      limitReached: truncatedCount > 0
+    }
+  }
+
+  const addFiles = (incomingFiles: File[]) => {
+    if (!incomingFiles || incomingFiles.length === 0) {
+      return
+    }
+
+    const { nextFiles, duplicates, addedCount, truncatedCount, limitReached } = mergeFiles(
+      selectedFiles,
+      incomingFiles
+    )
+
+    if (duplicates.length > 0) {
+      alert(`以下文件已存在，将跳过:
+${duplicates.join('
+')}`)
+    }
+
+    if (addedCount === 0) {
+      if (limitReached && truncatedCount > 0) {
+        alert(`最多只能选择${MAX_FILES}个文件，已达到上限。`)
+      }
+      return
+    }
+
+    if (truncatedCount > 0) {
+      alert(`最多只能选择${MAX_FILES}个文件，已自动忽略多余的${truncatedCount}个文件。`)
+    }
+
+    setSelectedFiles(nextFiles)
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(event.target.files || [])
+    addFiles(newFiles)
     event.target.value = ''
   }
 
-  // 处理引用文献
+  const handleFolderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(event.target.files || [])
+    addFiles(newFiles)
+    event.target.value = ''
+  }
+
+  const extractFilesFromEntry = (entry: any): Promise<File[]> => {
+    if (!entry) return Promise.resolve([])
+
+    if (entry.isFile) {
+      return new Promise((resolve, reject) => {
+        entry.file((file: File) => resolve([file]), reject)
+      })
+    }
+
+    if (entry.isDirectory) {
+      return new Promise((resolve, reject) => {
+        const reader = entry.createReader()
+        const allFiles: File[] = []
+
+        const readEntries = () => {
+          reader.readEntries(async (entries: any[]) => {
+            if (!entries.length) {
+              resolve(allFiles)
+              return
+            }
+            try {
+              for (const dirEntry of entries) {
+                const childFiles = await extractFilesFromEntry(dirEntry)
+                allFiles.push(...childFiles)
+              }
+              readEntries()
+            } catch (error) {
+              reject(error)
+            }
+          }, reject)
+        }
+
+        readEntries()
+      })
+    }
+
+    return Promise.resolve([])
+  }
+
+  const collectFilesFromItems = async (items: DataTransferItemList): Promise<File[]> => {
+    const files: File[] = []
+    for (const item of Array.from(items)) {
+      if (item.kind !== 'file') continue
+      const entry = (item as any).webkitGetAsEntry ? (item as any).webkitGetAsEntry() : null
+      if (entry) {
+        const entryFiles = await extractFilesFromEntry(entry)
+        files.push(...entryFiles)
+      } else {
+        const file = item.getAsFile()
+        if (file) {
+          files.push(file)
+        }
+      }
+    }
+    return files
+  }
+
+  // 处理引用文献// 处理引用文献
   const addCitation = () => {
     setCitations([...citations, ''])
   }
@@ -166,46 +283,27 @@ export default function UploadPage() {
     setIsDragOver(false)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
 
-    const newFiles = Array.from(e.dataTransfer.files)
+    let newFiles: File[] = []
 
-    // 合并新文件和已选择的文件
-    const allFiles = [...selectedFiles, ...newFiles]
-
-    // 限制文件数量不超过10个
-    if (allFiles.length > 10) {
-      alert(`最多只能选择10个文件,当前已选择${selectedFiles.length}个文件,最多还能选择${10 - selectedFiles.length}个文件`)
-      return
-    }
-
-    // 检查重复文件名
-    const duplicateFiles: string[] = []
-    const uniqueFiles: File[] = []
-
-    newFiles.forEach(newFile => {
-      const isDuplicate = selectedFiles.some(existingFile =>
-        existingFile.name === newFile.name && existingFile.size === newFile.size
-      )
-
-      if (isDuplicate) {
-        duplicateFiles.push(newFile.name)
-      } else {
-        uniqueFiles.push(newFile)
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      try {
+        newFiles = await collectFilesFromItems(e.dataTransfer.items)
+      } catch (error) {
+        console.error('处理文件夹拖拽失败:', error)
       }
-    })
-
-    // 如果有重复文件，提醒用户
-    if (duplicateFiles.length > 0) {
-      alert(`以下文件已存在,将跳过:\n${duplicateFiles.join('\n')}`)
     }
 
-    // 更新文件列表（只添加不重复的文件）
-    const finalFiles = [...selectedFiles, ...uniqueFiles]
-    setSelectedFiles(finalFiles)
+    if (newFiles.length === 0) {
+      newFiles = Array.from(e.dataTransfer.files)
+    }
+
+    addFiles(newFiles)
   }
+
 
   // 移除单个文件
   const removeFile = (index: number) => {
@@ -605,7 +703,7 @@ export default function UploadPage() {
                 文件上传
               </CardTitle>
               <CardDescription className="text-gray-600 mt-2">
-                支持任意文件格式,单次最多上传10个文件,单文件最大1GB
+                支持任意文件格式，单次最多上传{MAX_FILES}个文件（可直接选择文件夹），单文件最大 1GB
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
@@ -692,16 +790,32 @@ export default function UploadPage() {
                         {isDragOver ? '释放文件开始上传' : '拖拽文件到这里'}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        或者
+                        ?
                         <label className="text-red-600 hover:text-red-500 cursor-pointer font-medium">
-                          <span className="ml-1">点击选择文件</span>
+                          <span className="ml-1">??????</span>
                           <input
+                            ref={fileInputRef}
                             type="file"
                             multiple
                             onChange={handleFileChange}
                             className="hidden"
                           />
                         </label>
+                        <span className="mx-2 text-gray-300">|</span>
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-500 font-medium underline-offset-2 hover:underline"
+                          onClick={() => folderInputRef.current?.click()}
+                        >
+                          ???????
+                        </button>
+                        <input
+                          ref={folderInputRef}
+                          type="file"
+                          multiple
+                          onChange={handleFolderChange}
+                          className="hidden"
+                        />
                       </p>
                     </div>
                     <div className="mt-3 sm:mt-4 flex justify-center">
@@ -721,7 +835,7 @@ export default function UploadPage() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium text-gray-900">
-                        已选择文件 ({selectedFiles.length}/10)
+                        已选择文件 ({selectedFiles.length}/{MAX_FILES})
                       </h4>
                       <Button
                         type="button"

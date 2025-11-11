@@ -25,7 +25,7 @@ const caseStudyUploadSchema = z.object({
 });
 
 // Upload a new case study
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', upload.array('files', 15), async (req, res) => {
   try {
     const validation = caseStudyUploadSchema.safeParse(req.body);
     if (!validation.success) {

@@ -422,6 +422,14 @@ router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
       where: { id },
     });
 
+    // 4. 删除关联的向量记录，避免脏数据残留
+    await prisma.embeddedContent.deleteMany({
+      where: {
+        contentType: 'dataset',
+        contentId: id,
+      }
+    });
+
     res.json({ message: '数据集及其所有文件已成功删除' });
   } catch (error) {
     console.error('删除数据集错误:', error);
@@ -639,6 +647,14 @@ router.delete('/casestudies/:id', async (req: AuthenticatedRequest, res) => {
 
     // 删除数据库记录
     await prisma.caseStudy.delete({ where: { id } });
+
+    // 删除关联的向量记录
+    await prisma.embeddedContent.deleteMany({
+      where: {
+        contentType: 'casestudy',
+        contentId: id,
+      }
+    });
 
     res.json({ message: '案例集及其所有文件已成功删除' });
   } catch (error) {

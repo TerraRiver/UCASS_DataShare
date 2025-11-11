@@ -32,7 +32,7 @@ const upload = multer({
 });
 
 // 上传数据集 (支持多文件)
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', upload.array('files', 15), async (req, res) => {
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
