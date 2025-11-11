@@ -156,18 +156,18 @@ export default function UploadCaseStudyPage() {
     )
 
     if (duplicates.length > 0) {
-      alert(`以下文件已存在/重复，将跳过:\n${duplicates.join('\n')}`)
+      alert('以下文件已存在，将跳过:\n' + duplicates.join('\n'))
     }
 
     if (addedCount === 0) {
       if (limitReached && truncatedCount > 0) {
-        alert(`最多只能选择${MAX_FILES}个文件，已达到上限。`)
+        alert(`??????${MAX_FILES}????????/?????`)
       }
       return
     }
 
     if (truncatedCount > 0) {
-      alert(`最多只能选择${MAX_FILES}个文件，已自动忽略多余的${truncatedCount}个文件。`)
+      alert(`??????${MAX_FILES}????????/???????${truncatedCount}????`)
     }
 
     setSelectedFiles(nextFiles)
@@ -692,7 +692,7 @@ export default function UploadCaseStudyPage() {
                   <div
                     className={`relative border-2 border-dashed rounded-xl p-6 sm:p-8 transition-all duration-300 ${
                       isDragOver
-                        ? 'border-red-400 bg-red-50'
+                        或 'border-red-400 bg-red-50'
                         : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'
                     }`}
                     onDragOver={handleDragOver}
@@ -740,10 +740,10 @@ export default function UploadCaseStudyPage() {
                       </div>
                       <div className="mt-3 sm:mt-4 flex justify-center">
                         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-gray-500">
-                        <span>支持任意格式文件</span>
-                        <span>•</span>
+                        <span>支持任意文件格式/文件夹</span>
+                        <span>·</span>
                         <span>最多{MAX_FILES}个文件</span>
-                        <span>•</span>
+                        <span>·</span>
                         <span>单文件最大1GB</span>
                       </div>
                       </div>

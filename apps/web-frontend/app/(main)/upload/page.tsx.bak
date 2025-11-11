@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
@@ -167,7 +167,7 @@ export default function UploadPage() {
     )
 
     if (duplicates.length > 0) {
-      alert(`以下文件已存在，将跳过:\n${duplicates.join('\n')}`)
+      alert('以下文件已存在，将跳过:\n' + duplicates.join('\n'))
     }
 
     if (addedCount === 0) {
