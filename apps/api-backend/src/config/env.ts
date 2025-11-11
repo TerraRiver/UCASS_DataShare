@@ -12,7 +12,9 @@ const envSchema = z.object({
   MAX_FILE_SIZE: z.coerce.number().default(1073741824), // 1GB
   ADMIN_USERNAME: z.string().default('admin'),
   ADMIN_PASSWORD: z.string().default('admin123'),
-  DEEPSEEK_API_KEY: z.string().optional(), // DeepSeek API 密钥（RAG 功能）
+  // Qwen API 密钥（RAG 功能）
+  QWEN_EMBEDDING_API_KEY: z.string().optional(), // Qwen text-embedding-v4 模型 API 密钥
+  QWEN_CHAT_API_KEY: z.string().optional(),      // Qwen qwen-plus-2025-09-11 模型 API 密钥
 });
 
 export const ENV = envSchema.parse(process.env);

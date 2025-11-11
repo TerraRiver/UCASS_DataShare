@@ -127,17 +127,17 @@ export default function RAGManagementPage() {
       </div>
 
       {/* Warning Banner */}
-      {!process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY && (
+      {!process.env.NEXT_PUBLIC_Qwen_API_KEY && (
         <Card className="mb-6 border-2 border-yellow-200 bg-yellow-50">
           <CardBody className="p-4">
             <div className="flex items-start">
               <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-yellow-800 mb-1">
-                  未配置 DeepSeek API 密钥
+                  未配置 Qwen API 密钥
                 </h3>
                 <p className="text-sm text-yellow-700">
-                  请在后端 .env 文件中配置 DEEPSEEK_API_KEY 以启用 RAG 功能
+                  请在后端 .env 文件中配置 Qwen_API_KEY 以启用 RAG 功能
                 </p>
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function RAGManagementPage() {
             <li>• 向量化后的内容可以被智能搜索功能检索</li>
             <li>• 新上传并审核通过的内容需要手动向量化</li>
             <li>• 向量化过程可能需要几分钟，请耐心等待</li>
-            <li>• 每次向量化会消耗 DeepSeek API 配额</li>
+            <li>• 每次向量化会消耗 Qwen API 配额</li>
             <li>• 建议在内容较少时进行批量向量化</li>
           </ul>
         </CardBody>

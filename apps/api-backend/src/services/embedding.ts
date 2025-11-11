@@ -28,23 +28,58 @@ interface CaseStudy {
 
 export class EmbeddingService {
   private client: OpenAI;
+  private apiKey: string;
 
   constructor(apiKey?: string) {
-    // DeepSeek API 配置（兼容 OpenAI SDK）
+    // 阿里云百炼 Qwen API 配置（兼容 OpenAI SDK）
+    this.apiKey = apiKey || process.env.QWEN_EMBEDDING_API_KEY || '';
     this.client = new OpenAI({
-      apiKey: apiKey || process.env.DEEPSEEK_API_KEY || '',
-      baseURL: 'https://api.deepseek.com/v1'
+      apiKey: this.apiKey,
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     });
+  }
+
+  static async create(): Promise<EmbeddingService> {
+    const apiKey = await EmbeddingService.fetchApiKey();
+
+    if (!apiKey) {
+      throw new Error('尚未配置 QWEN_EMBEDDING_API_KEY，请先在后台设置。');
+    }
+
+    return new EmbeddingService(apiKey);
+  }
+
+  private static async fetchApiKey(): Promise<string> {
+    if (process.env.QWEN_EMBEDDING_API_KEY) {
+      return process.env.QWEN_EMBEDDING_API_KEY;
+    }
+
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: 'QWEN_EMBEDDING_API_KEY' }
+      });
+
+      return setting?.value || '';
+    } catch (error) {
+      console.error('Failed to fetch Embedding API key from database:', error);
+      return '';
+    }
   }
 
   /**
    * 生成文本的向量表示
+   * 使用 Qwen text-embedding-v4 模型
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
+      if (!this.apiKey) {
+        throw new Error('QWEN_EMBEDDING_API_KEY 未配置，请先在后台设置。');
+      }
+
       const response = await this.client.embeddings.create({
-        model: 'deepseek-chat', // DeepSeek 的 embedding 模型
+        model: 'text-embedding-v4', // Qwen 的 embedding 模型
         input: text,
+        encoding_format: 'float'  // 指定返回浮点数格式
       });
 
       return response.data[0].embedding;

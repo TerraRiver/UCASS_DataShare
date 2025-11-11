@@ -5,8 +5,6 @@ import { requireAdmin } from '@/middleware/auth';
 import { prisma } from '@/config/database';
 
 const router = Router();
-const ragService = new RAGService();
-const embeddingService = new EmbeddingService();
 
 /**
  * 智能搜索
@@ -20,6 +18,7 @@ router.post('/search', async (req, res) => {
       return res.status(400).json({ error: '请提供搜索查询' });
     }
 
+    const ragService = await RAGService.create();
     const results = await ragService.search(query, limit);
 
     res.json({
@@ -51,6 +50,7 @@ router.post('/chat', async (req, res) => {
       return res.status(400).json({ error: '请提供问题' });
     }
 
+    const ragService = await RAGService.create();
     const response = await ragService.chat(message, history);
 
     res.json(response);
@@ -73,6 +73,7 @@ router.get('/recommend/:type/:id', async (req, res) => {
       return res.status(400).json({ error: '无效的内容类型' });
     }
 
+    const ragService = await RAGService.create();
     const results = await ragService.recommend(type, id, limit);
 
     res.json({
@@ -106,6 +107,7 @@ router.post('/embed/dataset/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: '数据集不存在' });
     }
 
+    const embeddingService = await EmbeddingService.create();
     await embeddingService.embedDataset(dataset);
 
     res.json({ message: '向量化成功', datasetId: id });
@@ -132,6 +134,7 @@ router.post('/embed/casestudy/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: '案例集不存在' });
     }
 
+    const embeddingService = await EmbeddingService.create();
     await embeddingService.embedCaseStudy(caseStudy);
 
     res.json({ message: '向量化成功', caseStudyId: id });
@@ -147,6 +150,7 @@ router.post('/embed/casestudy/:id', requireAdmin, async (req, res) => {
  */
 router.post('/embed/all-datasets', requireAdmin, async (req, res) => {
   try {
+    const embeddingService = await EmbeddingService.create();
     const count = await embeddingService.embedAllDatasets();
 
     res.json({
@@ -166,6 +170,7 @@ router.post('/embed/all-datasets', requireAdmin, async (req, res) => {
  */
 router.post('/embed/all-casestudies', requireAdmin, async (req, res) => {
   try {
+    const embeddingService = await EmbeddingService.create();
     const count = await embeddingService.embedAllCaseStudies();
 
     res.json({
@@ -225,6 +230,7 @@ router.delete('/embed/:type/:id', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: '无效的内容类型' });
     }
 
+    const embeddingService = await EmbeddingService.create();
     await embeddingService.deleteEmbedding(type, id);
 
     res.json({ message: '删除成功' });

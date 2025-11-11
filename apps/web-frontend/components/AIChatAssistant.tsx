@@ -158,7 +158,7 @@ export default function AIChatAssistant() {
                     style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}>
                   AI 智能助手
                 </h1>
-                <p className="text-sm text-gray-500">基于 DeepSeek AI 技术</p>
+                <p className="text-sm text-gray-500">基于 Qwen AI 技术</p>
               </div>
             </div>
             <Button

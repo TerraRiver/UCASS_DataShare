@@ -23,7 +23,9 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(cmd //c \"taskkill //PID 47712 //F\")",
-      "Bash(powershell -Command \"Stop-Process -Id 47712 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 47712 -Force\")",
+      "Bash(tree:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

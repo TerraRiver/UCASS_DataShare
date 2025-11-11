@@ -13,7 +13,7 @@ export default function MainLayout({
       </main>
       <footer className="w-full flex items-center justify-center py-3">
         <span className="text-default-600">中国社会科学院大学</span>
-        <p className="text-primary ml-2">© 2024</p>
+        <p className="text-primary ml-2">© 2025</p>
       </footer>
     </div>
   );

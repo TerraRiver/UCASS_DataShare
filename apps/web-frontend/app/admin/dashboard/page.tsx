@@ -364,7 +364,7 @@ export default function AdminDashboard() {
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                <span>DeepSeek API 配置</span>
+                <span>Qwen API 配置</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-gray-500 rounded-full"></div>

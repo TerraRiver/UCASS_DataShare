@@ -212,7 +212,7 @@ export default function IntelligentSearch() {
       {/* Help Text */}
       {!answer && !loading && (
         <div className="mt-8 text-center text-sm text-gray-500">
-          <p>基于 DeepSeek AI 技术，为您提供智能搜索和问答服务</p>
+          <p>基于 Qwen AI 技术，为您提供智能搜索和问答服务</p>
         </div>
       )}
     </div>

@@ -27,32 +27,53 @@ export class RAGService {
   private embeddingService: EmbeddingService;
 
   constructor() {
-    // DeepSeek API 配置 - 从环境变量或运行时配置获取
+    // 阿里云百炼 Qwen Chat API 配置 - 从环境变量或运行时配置获取
     this.llm = new OpenAI({
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-      baseURL: 'https://api.deepseek.com/v1'
+      apiKey: process.env.QWEN_CHAT_API_KEY || '',
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     });
 
     this.embeddingService = new EmbeddingService();
   }
 
   /**
-   * 获取API key（从数据库或环境变量）
+   * 获取 Qwen Embedding API key（从数据库或环境变量）
    */
-  private static async getApiKey(): Promise<string> {
+  private static async getEmbeddingApiKey(): Promise<string> {
     // 优先从运行时环境变量获取
-    if (process.env.DEEPSEEK_API_KEY) {
-      return process.env.DEEPSEEK_API_KEY;
+    if (process.env.QWEN_EMBEDDING_API_KEY) {
+      return process.env.QWEN_EMBEDDING_API_KEY;
     }
 
     // 从数据库获取
     try {
       const setting = await prisma.systemSetting.findUnique({
-        where: { key: 'DEEPSEEK_API_KEY' }
+        where: { key: 'QWEN_EMBEDDING_API_KEY' }
       });
       return setting?.value || '';
     } catch (error) {
-      console.error('Failed to fetch API key from database:', error);
+      console.error('Failed to fetch Embedding API key from database:', error);
+      return '';
+    }
+  }
+
+  /**
+   * 获取 Qwen Chat API key（从数据库或环境变量）
+   */
+  private static async getChatApiKey(): Promise<string> {
+    // 优先从运行时环境变量获取
+    if (process.env.QWEN_CHAT_API_KEY) {
+      return process.env.QWEN_CHAT_API_KEY;
+    }
+
+    // 从数据库获取
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: 'QWEN_CHAT_API_KEY' }
+      });
+      return setting?.value || '';
+    } catch (error) {
+      console.error('Failed to fetch Chat API key from database:', error);
       return '';
     }
   }
@@ -61,16 +82,21 @@ export class RAGService {
    * 创建RAG服务实例（异步）
    */
   static async create(): Promise<RAGService> {
-    const apiKey = await RAGService.getApiKey();
+    const embeddingApiKey = await RAGService.getEmbeddingApiKey();
+    const chatApiKey = await RAGService.getChatApiKey();
     const instance = new RAGService();
 
-    // 更新API key
-    if (apiKey) {
+    // 更新 Embedding API key
+    if (embeddingApiKey) {
+      instance.embeddingService = new EmbeddingService(embeddingApiKey);
+    }
+
+    // 更新 Chat API key
+    if (chatApiKey) {
       instance.llm = new OpenAI({
-        apiKey: apiKey,
-        baseURL: 'https://api.deepseek.com/v1'
+        apiKey: chatApiKey,
+        baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
       });
-      instance.embeddingService = new EmbeddingService(apiKey);
     }
 
     return instance;
@@ -171,9 +197,9 @@ ${context}
         { role: 'user', content: userQuery }
       ];
 
-      // 5. 调用 LLM
+      // 5. 调用 LLM（Qwen qwen-plus-2025-09-11）
       const response = await this.llm.chat.completions.create({
-        model: 'deepseek-chat',
+        model: 'qwen-plus-2025-09-11',
         messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -256,7 +282,7 @@ ${context}
   async summarize(content: string): Promise<string> {
     try {
       const response = await this.llm.chat.completions.create({
-        model: 'deepseek-chat',
+        model: 'qwen-plus-2025-09-11',
         messages: [
           {
             role: 'system',
