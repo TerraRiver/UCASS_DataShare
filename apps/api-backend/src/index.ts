@@ -13,6 +13,8 @@ import adminRoutes from './routes/admin';
 import relationshipRoutes from './routes/relationships';
 import ragRoutes from './routes/rag';
 import settingsRoutes from './routes/settings';
+import methodRoutes from './routes/methods';
+import adminMethodRoutes from './routes/admin-methods';
 
 const app = express();
 
@@ -45,7 +47,9 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/datasets', datasetRoutes);
 app.use('/api/casestudies', caseStudyRoutes);
+app.use('/api/methods', methodRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/methods', adminMethodRoutes);
 app.use('/api/relationships', relationshipRoutes);
 app.use('/api/rag', ragRoutes);
 app.use('/api/admin', settingsRoutes);
@@ -59,6 +63,7 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       datasets: '/api/datasets',
       casestudies: '/api/casestudies',
+      methods: '/api/methods',
       admin: '/api/admin',
       relationships: '/api/relationships',
       rag: '/api/rag',

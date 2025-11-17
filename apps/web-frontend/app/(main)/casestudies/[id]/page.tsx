@@ -200,7 +200,14 @@ export default function CaseStudyDetailPage({ params }: { params: { id: string }
   }
 
   return (
-    <div className="min-h-screen bg-white -mx-6 -mt-16">{/* 抵消 layout 的 padding */}
+    <div
+      className="min-h-screen bg-white -mx-6 -mt-16"
+      style={{
+        width: '100vw',
+        marginLeft: 'calc(50% - 50vw)',
+        marginRight: 'calc(50% - 50vw)'
+      }}
+    >{/* 抵消 layout 的 padding 并突破容器宽度限制 */}
         {/* Hero Section */}
         <section className="border-b border-gray-100 py-12 px-8 bg-gradient-to-b from-gray-50 to-white">
           <div className="max-w-7xl mx-auto">

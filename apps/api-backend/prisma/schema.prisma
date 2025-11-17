@@ -146,3 +146,62 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+// 方法模块分类（10大类）
+model MethodCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique  // DA, DP, QS, NLP, SNA, GIS, ML, SM, DV, CI
+  name        String             // 数据获取, 数据预处理等
+  englishName String   @map("english_name")  // Data Acquisition等
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  modules     MethodModule[]
+
+  @@map("method_categories")
+}
+
+// 方法模块
+model MethodModule {
+  id            String   @id @default(cuid())
+  code          String   @unique  // DA01, DA02, NLP15等
+  name          String             // 静态网页抓取
+  englishName   String   @map("english_name")  // Static Scraping
+  summary       String?  // 简述（可选）
+
+  categoryId    String   @map("category_id")
+  category      MethodCategory @relation(fields: [categoryId], references: [id])
+
+  practiceUrl   String?  @map("practice_url")  // 实操链接
+  enablePractice Boolean @default(false) @map("enable_practice")
+
+  downloadCount Int      @default(0) @map("download_count")
+  previewCount  Int      @default(0) @map("preview_count")
+
+  uploadTime    DateTime @default(now()) @map("upload_time")
+  updateTime    DateTime @updatedAt @map("update_time")
+  isVisible     Boolean  @default(true) @map("is_visible")
+
+  files         MethodModuleFile[]
+
+  @@map("method_modules")
+}
+
+// 方法模块文件
+model MethodModuleFile {
+  id             String   @id @default(cuid())
+  filename       String
+  originalName   String   @map("original_name")
+  relativePath   String?  @map("relative_path")  // 文件的相对路径，用于保持文件夹结构
+  filePath       String   @map("file_path")
+  fileSize       Int      @map("file_size")
+  fileType       String   @map("file_type")
+  mimeType       String?  @map("mime_type")
+  uploadTime     DateTime @default(now()) @map("upload_time")
+
+  methodModuleId String   @map("method_module_id")
+  methodModule   MethodModule @relation(fields: [methodModuleId], references: [id], onDelete: Cascade)
+
+  @@map("method_module_files")
+}

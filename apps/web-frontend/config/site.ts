@@ -17,6 +17,10 @@ export const siteConfig = {
       href: "/casestudies",
     },
     {
+      label: "方法模块",
+      href: "/methods",
+    },
+    {
       label: "AI 智能助手",
       href: "/ai-assistant",
     },
@@ -38,6 +42,10 @@ export const siteConfig = {
 			   label: "浏览所有案例集",
 			   href: "/casestudies",
 			 },
+    {
+      label: "方法模块",
+      href: "/methods",
+    },
 		{
 			label: "AI 智能助手",
 			href: "/ai-assistant",

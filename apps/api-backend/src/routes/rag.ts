@@ -145,6 +145,36 @@ router.post('/embed/casestudy/:id', requireAdmin, async (req, res) => {
 });
 
 /**
+ * 向量化单个方法模块（管理员）
+ * POST /api/rag/embed/methodmodule/:id
+ */
+router.post('/embed/methodmodule/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const methodModule = await prisma.methodModule.findUnique({
+      where: { id },
+      include: {
+        files: true,
+        category: true
+      }
+    });
+
+    if (!methodModule) {
+      return res.status(404).json({ error: '方法模块不存在' });
+    }
+
+    const embeddingService = await EmbeddingService.create();
+    await embeddingService.embedMethodModule(methodModule);
+
+    res.json({ message: '向量化成功', methodModuleId: id });
+  } catch (error: any) {
+    console.error('Embedding failed:', error);
+    res.status(500).json({ error: error.message || '向量化失败' });
+  }
+});
+
+/**
  * 批量向量化所有数据集（管理员）
  * POST /api/rag/embed/all-datasets
  */
@@ -185,31 +215,55 @@ router.post('/embed/all-casestudies', requireAdmin, async (req, res) => {
 });
 
 /**
+ * 批量向量化所有方法模块（管理员）
+ * POST /api/rag/embed/all-methodmodules
+ */
+router.post('/embed/all-methodmodules', requireAdmin, async (req, res) => {
+  try {
+    const embeddingService = await EmbeddingService.create();
+    const count = await embeddingService.embedAllMethodModules();
+
+    res.json({
+      message: '批量向量化完成',
+      count,
+      type: 'methodmodules'
+    });
+  } catch (error: any) {
+    console.error('Batch embedding failed:', error);
+    res.status(500).json({ error: error.message || '批量向量化失败' });
+  }
+});
+
+/**
  * 获取向量化统计信息（管理员）
  * GET /api/rag/stats
  */
 router.get('/stats', requireAdmin, async (req, res) => {
   try {
-    const [totalEmbeddings, datasetCount, caseStudyCount] = await Promise.all([
+    const [totalEmbeddings, datasetCount, caseStudyCount, methodModuleCount] = await Promise.all([
       prisma.embeddedContent.count(),
       prisma.embeddedContent.count({ where: { contentType: 'dataset' } }),
-      prisma.embeddedContent.count({ where: { contentType: 'casestudy' } })
+      prisma.embeddedContent.count({ where: { contentType: 'casestudy' } }),
+      prisma.embeddedContent.count({ where: { contentType: 'methodmodule' } })
     ]);
 
-    const [totalDatasets, totalCaseStudies] = await Promise.all([
+    const [totalDatasets, totalCaseStudies, totalMethodModules] = await Promise.all([
       prisma.dataset.count({ where: { isReviewed: true, isVisible: true } }),
-      prisma.caseStudy.count({ where: { isReviewed: true, isVisible: true } })
+      prisma.caseStudy.count({ where: { isReviewed: true, isVisible: true } }),
+      prisma.methodModule.count({ where: { isVisible: true } })
     ]);
 
     res.json({
       totalEmbeddings,
       byType: {
         datasets: datasetCount,
-        caseStudies: caseStudyCount
+        caseStudies: caseStudyCount,
+        methodModules: methodModuleCount
       },
       coverage: {
         datasets: totalDatasets > 0 ? (datasetCount / totalDatasets * 100).toFixed(1) + '%' : '0%',
-        caseStudies: totalCaseStudies > 0 ? (caseStudyCount / totalCaseStudies * 100).toFixed(1) + '%' : '0%'
+        caseStudies: totalCaseStudies > 0 ? (caseStudyCount / totalCaseStudies * 100).toFixed(1) + '%' : '0%',
+        methodModules: totalMethodModules > 0 ? (methodModuleCount / totalMethodModules * 100).toFixed(1) + '%' : '0%'
       }
     });
   } catch (error: any) {
@@ -226,7 +280,7 @@ router.delete('/embed/:type/:id', requireAdmin, async (req, res) => {
   try {
     const { type, id } = req.params;
 
-    if (!['dataset', 'casestudy'].includes(type)) {
+    if (!['dataset', 'casestudy', 'methodmodule'].includes(type)) {
       return res.status(400).json({ error: '无效的内容类型' });
     }
 

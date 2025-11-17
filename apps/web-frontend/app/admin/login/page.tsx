@@ -65,7 +65,14 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div
+      className="min-h-screen bg-background flex items-center justify-center -mx-6 -my-8"
+      style={{
+        width: '100vw',
+        marginLeft: 'calc(50% - 50vw)',
+        marginRight: 'calc(50% - 50vw)'
+      }}
+    >
       <div className="w-full max-w-md px-4">
         {/* Back to home */}
         <div className="mb-8">

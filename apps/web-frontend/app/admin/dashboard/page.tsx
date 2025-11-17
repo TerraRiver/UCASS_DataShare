@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody, Divider, Button } from "@nextui-org/react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, TrendingUpIcon, FileTextIcon, ArrowRightIcon, LinkIcon, Sparkles, Settings } from "lucide-react"
+import { BookMarkedIcon, ClockIcon, CheckCircleIcon, DownloadCloudIcon, TrendingUpIcon, FileTextIcon, ArrowRightIcon, LinkIcon, Sparkles, Settings, CodeIcon } from "lucide-react"
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -279,6 +279,53 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                 <span>支持可视化探索</span>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* 方法模块管理区域 */}
+        <Card className="shadow-lg hover:shadow-xl transition-all border-2 border-transparent hover:border-red-200">
+          <CardHeader className="border-b border-gray-100 p-6">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-50 rounded-xl">
+                  <CodeIcon className="w-7 h-7 text-indigo-600" />
+                </div>
+                <div>
+                  <h2
+                    className="text-xl font-medium text-gray-900"
+                    style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+                  >
+                    方法模块管理
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">管理计算社会科学方法模块</p>
+                </div>
+              </div>
+              <Button
+                as={Link}
+                href="/admin/methods"
+                className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                endContent={<ArrowRightIcon className="w-4 h-4" />}
+              >
+                进入管理
+              </Button>
+            </div>
+          </CardHeader>
+          <Divider/>
+          <CardBody className="p-6">
+            <div className="text-sm text-gray-600 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                <span>上传和管理方法模块</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                <span>分类管理和模块编辑</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                <span>树形结构可视化</span>
               </div>
             </div>
           </CardBody>

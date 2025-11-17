@@ -10,10 +10,12 @@ interface Stats {
   byType: {
     datasets: number;
     caseStudies: number;
+    methodModules: number;
   };
   coverage: {
     datasets: string;
     caseStudies: string;
+    methodModules: string;
   };
 }
 
@@ -50,10 +52,12 @@ export default function RAGManagementPage() {
     }
   };
 
-  const handleEmbedAll = async (type: 'datasets' | 'casestudies') => {
+  const handleEmbedAll = async (type: 'datasets' | 'casestudies' | 'methodmodules') => {
     const confirmMessage = type === 'datasets'
       ? '确定要向量化所有数据集吗？这可能需要一些时间。'
-      : '确定要向量化所有案例集吗？这可能需要一些时间。';
+      : type === 'casestudies'
+      ? '确定要向量化所有案例集吗？这可能需要一些时间。'
+      : '确定要向量化所有方法模块吗？这可能需要一些时间。';
 
     if (!confirm(confirmMessage)) {
       return;
@@ -64,7 +68,9 @@ export default function RAGManagementPage() {
       const token = localStorage.getItem('admin_token');
       const endpoint = type === 'datasets'
         ? 'http://localhost:30002/api/rag/embed/all-datasets'
-        : 'http://localhost:30002/api/rag/embed/all-casestudies';
+        : type === 'casestudies'
+        ? 'http://localhost:30002/api/rag/embed/all-casestudies'
+        : 'http://localhost:30002/api/rag/embed/all-methodmodules';
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -75,7 +81,8 @@ export default function RAGManagementPage() {
 
       if (response.ok) {
         const data = await response.json();
-        toast.success(`成功向量化 ${data.count} 个${type === 'datasets' ? '数据集' : '案例集'}`);
+        const typeName = type === 'datasets' ? '数据集' : type === 'casestudies' ? '案例集' : '方法模块';
+        toast.success(`成功向量化 ${data.count} 个${typeName}`);
         fetchStats();
       } else {
         const error = await response.json();
@@ -113,7 +120,7 @@ export default function RAGManagementPage() {
               RAG 向量化管理
             </h1>
             <p className="text-gray-600">
-              管理数据集和案例集的向量化，用于智能搜索功能
+              管理数据集、案例集和方法模块的向量化，用于智能搜索功能
             </p>
           </div>
           <Button
@@ -146,7 +153,7 @@ export default function RAGManagementPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardBody className="p-6">
             <div className="flex items-center justify-between mb-2">
@@ -186,10 +193,24 @@ export default function RAGManagementPage() {
             </div>
           </CardBody>
         </Card>
+
+        <Card>
+          <CardBody className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">方法模块</span>
+              <Chip size="sm" color="primary" variant="flat">
+                {stats?.coverage.methodModules}
+              </Chip>
+            </div>
+            <div className="text-3xl font-semibold text-gray-900">
+              {stats?.byType.methodModules || 0}
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
       {/* Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Datasets Embedding */}
         <Card>
           <CardBody className="p-6">
@@ -262,6 +283,44 @@ export default function RAGManagementPage() {
             <p className="text-xs text-gray-500 mt-3">
               <CheckCircle className="w-3 h-3 inline mr-1" />
               已向量化 {stats?.byType.caseStudies} 个案例集
+            </p>
+          </CardBody>
+        </Card>
+
+        {/* Method Modules Embedding */}
+        <Card>
+          <CardBody className="p-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                <Database className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">方法模块向量化</h3>
+                <p className="text-sm text-gray-600">
+                  覆盖率: {stats?.coverage.methodModules}
+                </p>
+              </div>
+            </div>
+
+            <Progress
+              value={parseInt(stats?.coverage.methodModules || '0')}
+              color="primary"
+              className="mb-4"
+            />
+
+            <Button
+              color="primary"
+              startContent={<Sparkles className="w-4 h-4" />}
+              onClick={() => handleEmbedAll('methodmodules')}
+              isLoading={embedding}
+              fullWidth
+            >
+              批量向量化所有方法模块
+            </Button>
+
+            <p className="text-xs text-gray-500 mt-3">
+              <CheckCircle className="w-3 h-3 inline mr-1" />
+              已向量化 {stats?.byType.methodModules} 个方法模块
             </p>
           </CardBody>
         </Card>

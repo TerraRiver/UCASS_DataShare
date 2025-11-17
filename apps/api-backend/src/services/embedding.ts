@@ -26,6 +26,21 @@ interface CaseStudy {
   practiceUrl: string | null;
 }
 
+interface MethodModule {
+  id: string;
+  code: string;
+  name: string;
+  englishName: string;
+  summary: string | null;
+  category: {
+    code: string;
+    name: string;
+    englishName: string;
+  };
+  practiceUrl: string | null;
+  enablePractice: boolean;
+}
+
 export class EmbeddingService {
   private client: OpenAI;
   private apiKey: string;
@@ -274,6 +289,82 @@ ${readmeContent}
   }
 
   /**
+   * 向量化方法模块
+   */
+  async embedMethodModule(methodModule: any): Promise<void> {
+    try {
+      // 读取 README 内容
+      const readmeContent = await this.readReadmeContent(methodModule.files || []);
+
+      // 构建要向量化的文本
+      const text = `
+标题: ${methodModule.name}
+英文名: ${methodModule.englishName}
+代码: ${methodModule.code}
+分类: [${methodModule.category.code}] ${methodModule.category.name} (${methodModule.category.englishName})
+简述: ${methodModule.summary || '无'}
+实操链接: ${methodModule.enablePractice ? (methodModule.practiceUrl || '无') : '不支持实操'}
+
+README 内容:
+${readmeContent}
+      `.trim();
+
+      // 生成向量
+      const embedding = await this.generateEmbedding(text);
+
+      // 检查是否已存在
+      const existing = await prisma.embeddedContent.findFirst({
+        where: {
+          contentType: 'methodmodule',
+          contentId: methodModule.id
+        }
+      });
+
+      if (existing) {
+        // 更新
+        await prisma.embeddedContent.update({
+          where: { id: existing.id },
+          data: {
+            title: methodModule.name,
+            content: text,
+            embedding: JSON.stringify(embedding),
+            metadata: {
+              code: methodModule.code,
+              categoryCode: methodModule.category.code,
+              categoryName: methodModule.category.name,
+              enablePractice: methodModule.enablePractice,
+              downloadCount: methodModule.downloadCount,
+            }
+          }
+        });
+      } else {
+        // 创建新记录
+        await prisma.embeddedContent.create({
+          data: {
+            contentType: 'methodmodule',
+            contentId: methodModule.id,
+            title: methodModule.name,
+            content: text,
+            embedding: JSON.stringify(embedding),
+            metadata: {
+              code: methodModule.code,
+              categoryCode: methodModule.category.code,
+              categoryName: methodModule.category.name,
+              enablePractice: methodModule.enablePractice,
+              downloadCount: methodModule.downloadCount,
+            }
+          }
+        });
+      }
+
+      console.log(`✓ Embedded method module: ${methodModule.name}`);
+    } catch (error) {
+      console.error(`Failed to embed method module ${methodModule.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * 批量向量化所有已审核的数据集
    */
   async embedAllDatasets(): Promise<number> {
@@ -325,6 +416,35 @@ ${readmeContent}
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Failed to embed case study ${caseStudy.id}:`, error);
+      }
+    }
+
+    return count;
+  }
+
+  /**
+   * 批量向量化所有可见的方法模块
+   */
+  async embedAllMethodModules(): Promise<number> {
+    const methodModules = await prisma.methodModule.findMany({
+      where: {
+        isVisible: true
+      },
+      include: {
+        files: true,
+        category: true
+      }
+    });
+
+    let count = 0;
+    for (const methodModule of methodModules) {
+      try {
+        await this.embedMethodModule(methodModule);
+        count++;
+        // 避免 API 限流，稍微延迟
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Failed to embed method module ${methodModule.id}:`, error);
       }
     }
 

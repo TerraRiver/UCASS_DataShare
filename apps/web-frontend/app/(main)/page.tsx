@@ -3,7 +3,55 @@
 import { Link } from "@nextui-org/link";
 import DefaultLayout from "@/layouts/default";
 import { Button, Card, CardBody } from "@nextui-org/react";
-import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network, Sparkles } from "lucide-react";
+import { BookCopy, FileUp, Layers3, Database, Share2, Lock, BarChart3, Network, Sparkles, Boxes } from "lucide-react";
+import { useState, useEffect } from "react";
+
+// 打字机效果组件
+function TypewriterText({
+	text,
+	className,
+	style,
+	speed = 100,
+	delay = 0
+}: {
+	text: string;
+	className?: string;
+	style?: React.CSSProperties;
+	speed?: number;
+	delay?: number;
+}) {
+	const [displayText, setDisplayText] = useState('');
+	const [currentIndex, setCurrentIndex] = useState(0);
+	const [isComplete, setIsComplete] = useState(false);
+
+	useEffect(() => {
+		if (currentIndex === 0 && delay > 0) {
+			const delayTimer = setTimeout(() => {
+				setCurrentIndex(1);
+			}, delay);
+			return () => clearTimeout(delayTimer);
+		}
+
+		if (currentIndex > 0 && currentIndex <= text.length) {
+			const timer = setTimeout(() => {
+				setDisplayText(text.slice(0, currentIndex));
+				setCurrentIndex(currentIndex + 1);
+			}, speed);
+			return () => clearTimeout(timer);
+		}
+
+		if (currentIndex > text.length) {
+			setIsComplete(true);
+		}
+	}, [currentIndex, text, speed, delay]);
+
+	return (
+		<span className={className} style={style}>
+			{displayText}
+			{!isComplete && <span className="animate-pulse">|</span>}
+		</span>
+	);
+}
 
 export default function Home() {
 	return (
@@ -11,27 +59,43 @@ export default function Home() {
 			{/* Hero Section - Minimalist Design */}
 			<section className="flex flex-col items-center justify-center min-h-[85vh] px-8">
 				<div className="max-w-5xl text-center space-y-16">
-					{/* Title with Serif Font */}
+					{/* Title with Serif Font and Typewriter Effect */}
 					<div className="space-y-6">
 						<h1
-							className="text-5xl md:text-7xl font-light tracking-wide"
+							className="text-5xl md:text-7xl font-light tracking-wide min-h-[180px] md:min-h-[220px] flex flex-col items-center justify-center gap-1"
 							style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
 						>
-							<span className="text-red-600">计算社会科学</span>
-							<br />
-							<span className="text-gray-900">与国家治理实验室</span>
+							<div>
+								<TypewriterText
+									text="计算社会科学"
+									className="text-red-600"
+									speed={80}
+									delay={200}
+								/>
+							</div>
+							<div>
+								<TypewriterText
+									text="与国家治理实验室"
+									className="text-gray-900"
+									speed={80}
+									delay={1200}
+								/>
+							</div>
 						</h1>
-						<div className="h-1 w-32 bg-red-600 mx-auto"></div>
-						<p
-							className="text-2xl md:text-3xl font-light text-gray-700 mt-8"
-							style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
-						>
-							学术资源共享交流平台
-						</p>
+						<div className="h-1 w-32 bg-red-600 mx-auto animate-[fadeIn_0.5s_ease-in-out_2200ms_both]"></div>
+						<div className="animate-[fadeIn_0.5s_ease-in-out_2400ms_both]">
+							<TypewriterText
+								text="学术资源共享交流平台"
+								className="text-2xl md:text-3xl font-light text-gray-700 mt-8 inline-block"
+								style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+								speed={60}
+								delay={2600}
+							/>
+						</div>
 					</div>
 
-					{/* Four Main Navigation Cards */}
-					<div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mt-20 mx-auto">
+					{/* Main Navigation Cards */}
+					<div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl mt-20 mx-auto animate-[fadeIn_0.8s_ease-in-out_300ms_both]">
 						<Card
 							as={Link}
 							href={'/discover'}
@@ -75,6 +139,30 @@ export default function Home() {
 									</h3>
 									<p className="text-gray-600 text-xs">
 										学习优秀的研究案例和方法
+									</p>
+								</div>
+							</CardBody>
+						</Card>
+
+						<Card
+							as={Link}
+							href={'/methods'}
+							className="w-52 h-52 bg-white border-2 border-red-100 hover:border-red-300 transition-all duration-500 hover:shadow-2xl hover:scale-105 cursor-pointer group"
+							isPressable
+						>
+							<CardBody className="flex flex-col items-center justify-center p-8 text-center gap-4">
+								<div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors">
+									<Boxes size={32} className="text-red-600" />
+								</div>
+								<div className="space-y-2">
+									<h3
+										className="text-xl font-medium text-gray-800"
+										style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
+									>
+										浏览方法模块
+									</h3>
+									<p className="text-gray-600 text-xs">
+										探索计算社会科学方法论体系
 									</p>
 								</div>
 							</CardBody>
