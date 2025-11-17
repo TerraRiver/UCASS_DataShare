@@ -139,7 +139,7 @@ router.get('/modules/:id/files/:fileId', async (req, res) => {
       return res.status(404).json({ error: 'Module not found' });
     }
 
-    const file = module.files.find((f) => f.id === fileId);
+    const file = module.files.find((f: any) => f.id === fileId);
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }

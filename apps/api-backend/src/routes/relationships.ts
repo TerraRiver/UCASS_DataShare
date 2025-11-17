@@ -63,14 +63,14 @@ router.get('/graph', optionalAdmin, async (req: AuthenticatedRequest, res) => {
     // 过滤关系：如果不是管理员，只显示双方都已审核且可见的关系
     const filteredRelationships = isAdmin
       ? relationships
-      : relationships.filter(rel =>
+      : relationships.filter((rel: any) =>
           rel.caseStudy.isReviewed && rel.caseStudy.isVisible &&
           rel.dataset.isReviewed && rel.dataset.isVisible
         );
 
     // 构建节点和边的数据结构
     const nodes = [
-      ...datasets.map(ds => ({
+      ...datasets.map((ds: any) => ({
         id: ds.id,
         type: 'dataset' as const,
         label: ds.name,
@@ -84,7 +84,7 @@ router.get('/graph', optionalAdmin, async (req: AuthenticatedRequest, res) => {
           isVisible: ds.isVisible,
         }
       })),
-      ...caseStudies.map(cs => ({
+      ...caseStudies.map((cs: any) => ({
         id: cs.id,
         type: 'casestudy' as const,
         label: cs.title,
@@ -100,7 +100,7 @@ router.get('/graph', optionalAdmin, async (req: AuthenticatedRequest, res) => {
       })),
     ];
 
-    const edges = filteredRelationships.map(rel => ({
+    const edges = filteredRelationships.map((rel: any) => ({
       id: rel.id,
       source: rel.caseStudyId,
       target: rel.datasetId,
@@ -141,7 +141,7 @@ router.get('/casestudy/:id/datasets', async (req, res) => {
       }
     });
 
-    const datasets = relationships.map(rel => rel.dataset);
+    const datasets = relationships.map((rel: any) => rel.dataset);
     res.json({ datasets });
   } catch (error) {
     console.error('获取案例集关联数据集错误:', error);
@@ -168,7 +168,7 @@ router.get('/dataset/:id/casestudies', async (req, res) => {
       }
     });
 
-    const caseStudies = relationships.map(rel => rel.caseStudy);
+    const caseStudies = relationships.map((rel: any) => rel.caseStudy);
     res.json({ caseStudies });
   } catch (error) {
     console.error('获取数据集关联案例集错误:', error);
@@ -294,7 +294,7 @@ router.post('/batch', requireAdmin, async (req: AuthenticatedRequest, res) => {
       select: { datasetId: true }
     });
 
-    const existingDatasetIds = existingRelations.map(r => r.datasetId);
+    const existingDatasetIds = existingRelations.map((r: any) => r.datasetId);
     const newDatasetIds = datasetIds.filter(id => !existingDatasetIds.includes(id));
 
     // 创建新关系

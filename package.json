@@ -7,19 +7,23 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "bun run --filter='*' dev",
-    "build": "bun run --filter='*' build",
-    "start": "bun run --filter='*' start",
-    "db:generate": "cd apps/api-backend && bunx prisma generate",
-    "db:push": "cd apps/api-backend && bunx prisma db push",
-    "db:migrate": "cd apps/api-backend && bunx prisma migrate dev",
-    "db:studio": "cd apps/api-backend && bunx prisma studio"
+    "dev": "concurrently \"npm run dev --workspace=@ucass/api-backend\" \"npm run dev --workspace=@ucass/web-frontend\"",
+    "build": "npm run build --workspaces",
+    "start": "concurrently \"npm run start --workspace=@ucass/api-backend\" \"npm run start --workspace=@ucass/web-frontend\"",
+    "start:backend": "npm run start --workspace=@ucass/api-backend",
+    "start:frontend": "npm run start --workspace=@ucass/web-frontend",
+    "db:generate": "cd apps/api-backend && npx prisma generate",
+    "db:push": "cd apps/api-backend && npx prisma db push",
+    "db:migrate": "cd apps/api-backend && npx prisma migrate dev",
+    "db:studio": "cd apps/api-backend && npx prisma studio"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "concurrently": "^9.2.1",
     "typescript": "^5.0.0"
   },
   "engines": {
-    "bun": ">=1.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
-} 
+}

@@ -33,7 +33,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res) => {
       where: { isReviewed: true },
     });
 
-    const categoryCounts = datasetsByCategory.map(item => ({
+    const categoryCounts = datasetsByCategory.map((item: any) => ({
       name: item.catalog,
       value: item._count.catalog
     }));
@@ -57,7 +57,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res) => {
       where: { isReviewed: true },
     });
 
-    const disciplineCounts = caseStudiesByDiscipline.map(item => ({
+    const disciplineCounts = caseStudiesByDiscipline.map((item: any) => ({
       name: item.discipline,
       value: item._count.discipline
     }));
@@ -405,7 +405,7 @@ router.delete('/datasets/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     // 2. 删除服务器上的物理文件
-    dataset.files.forEach(file => {
+    dataset.files.forEach((file: any) => {
       const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
       if (fs.existsSync(filePath)) {
         try {
@@ -634,7 +634,7 @@ router.delete('/casestudies/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     // 删除物理文件
-    caseStudy.files.forEach(file => {
+    caseStudy.files.forEach((file: any) => {
       const filePath = path.join(ENV.UPLOAD_DIR, file.filename);
       if (fs.existsSync(filePath)) {
         try {

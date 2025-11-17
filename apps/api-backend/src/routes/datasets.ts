@@ -174,7 +174,7 @@ router.get('/public', async (req, res) => {
     });
 
     // 按分类分组
-    const groupedDatasets = datasets.reduce((acc, dataset) => {
+    const groupedDatasets = datasets.reduce((acc: Record<string, any[]>, dataset: any) => {
       const { catalog } = dataset;
       if (!acc[catalog]) {
         acc[catalog] = [];
@@ -345,7 +345,7 @@ router.post('/:id/download/zip', optionalAdmin, async (req: AuthenticatedRequest
     }
 
     // 过滤出要下载的文件
-    const selectedFiles = dataset.files.filter(f => fileIds.includes(f.id));
+    const selectedFiles = dataset.files.filter((f: any) => fileIds.includes(f.id));
     if (selectedFiles.length === 0) {
       return res.status(404).json({ error: '未找到指定的文件' });
     }

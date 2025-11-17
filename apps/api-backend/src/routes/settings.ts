@@ -13,7 +13,7 @@ router.get('/settings', requireAdmin, async (req, res) => {
     });
 
     // 脱敏处理：敏感信息只显示前4位和后4位
-    const sanitizedSettings = settings.map(setting => ({
+    const sanitizedSettings = settings.map((setting: any) => ({
       ...setting,
       value: setting.isSecret && setting.value
         ? maskSecret(setting.value)

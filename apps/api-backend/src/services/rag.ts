@@ -125,7 +125,7 @@ export class RAGService {
 
       // 3. 计算相似度并排序
       const results = allEmbeddings
-        .map(item => {
+        .map((item: any) => {
           const itemEmbedding = JSON.parse(item.embedding);
           const similarity = this.cosineSimilarity(queryEmbedding, itemEmbedding);
 
@@ -139,7 +139,7 @@ export class RAGService {
             metadata: item.metadata
           };
         })
-        .sort((a, b) => b.similarity - a.similarity)
+        .sort((a: any, b: any) => b.similarity - a.similarity)
         .slice(0, limit);
 
       return results;
@@ -252,7 +252,7 @@ ${context}
       // 3. 计算相似度
       const currentEmbedding = JSON.parse(currentContent.embedding);
       const results = allEmbeddings
-        .map(item => {
+        .map((item: any) => {
           const itemEmbedding = JSON.parse(item.embedding);
           const similarity = this.cosineSimilarity(currentEmbedding, itemEmbedding);
 
@@ -266,7 +266,7 @@ ${context}
             metadata: item.metadata
           };
         })
-        .sort((a, b) => b.similarity - a.similarity)
+        .sort((a: any, b: any) => b.similarity - a.similarity)
         .slice(0, limit);
 
       return results;
