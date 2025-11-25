@@ -17,10 +17,10 @@ import { ArrowLeftIcon, UploadIcon, CheckCircleIcon, AlertCircleIcon, FileIcon, 
 const uploadSchema = z.object({
   name: z.string().min(1, '数据集名称不能为空'),
   catalog: z.string().min(1, '请选择数据集分类'),
-  summary: z.string().max(50, '简述不能超过50个字符').optional(),
+  summary: z.string().optional().or(z.literal('')),
   source: z.string().min(1, '数据来源不能为空'),
   sourceUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
-  sourceDate: z.string().optional(),
+  sourceDate: z.string().optional().or(z.literal('')),
   files: z.any().optional(), // 文件验证将在组件中处理
 })
 
@@ -75,23 +75,16 @@ export default function UploadPage() {
     let completedSteps = 0
     let totalSteps = 0
 
-    // Step 1: Basic Information (3 fields)
-    totalSteps += 3
+    // Step 1: Basic Information (2 required fields: name, catalog)
+    totalSteps += 2
     if (formData?.name) completedSteps++
     if (formData?.catalog) completedSteps++
-    if (formData?.summary) completedSteps++
 
-    // Step 2: Data Source (3 fields)
-    totalSteps += 3
-    if (formData?.source) completedSteps++
-    if (formData?.sourceUrl) completedSteps++
-    if (formData?.sourceDate) completedSteps++
-
-    // Step 3: Citations (optional but counts if filled)
+    // Step 2: Data Source (1 required field: source)
     totalSteps += 1
-    if (citations.some(c => c.trim() !== '')) completedSteps++
+    if (formData?.source) completedSteps++
 
-    // Step 4: Files (required)
+    // Step 3: Files (required)
     totalSteps += 1
     if (selectedFiles.length > 0) completedSteps++
 
@@ -103,7 +96,7 @@ export default function UploadPage() {
     if (!formData?.name || !formData?.catalog) return 1
     if (!formData?.source) return 2
     if (selectedFiles.length === 0) return 3
-    return 4
+    return 3
   }, [formData, selectedFiles])
 
   // 处理文件选择
@@ -463,7 +456,7 @@ export default function UploadPage() {
               </div>
 
               {/* Step Indicators */}
-              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="mt-6 grid grid-cols-3 gap-4">
                 <div className={`text-center p-3 rounded-lg border-2 transition-all ${formData?.name && formData?.catalog ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
                   <div className={`text-xs font-medium ${formData?.name && formData?.catalog ? 'text-green-700' : 'text-gray-600'}`}>
                     ① 基本信息
@@ -474,14 +467,9 @@ export default function UploadPage() {
                     ② 数据来源
                   </div>
                 </div>
-                <div className={`text-center p-3 rounded-lg border-2 transition-all ${citations.some(c => c.trim() !== '') ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className={`text-xs font-medium ${citations.some(c => c.trim() !== '') ? 'text-green-700' : 'text-gray-600'}`}>
-                    ③ 引用文献
-                  </div>
-                </div>
                 <div className={`text-center p-3 rounded-lg border-2 transition-all ${selectedFiles.length > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
                   <div className={`text-xs font-medium ${selectedFiles.length > 0 ? 'text-green-700' : 'text-gray-600'}`}>
-                    ④ 文件上传
+                    ③ 文件上传
                   </div>
                 </div>
               </div>
@@ -547,7 +535,7 @@ export default function UploadPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="summary" className="text-sm font-medium text-gray-700">
-                  简述 <span className="text-gray-400">(可选,最多50字符)</span>
+                  简述 <span className="text-gray-400">(可选)</span>
                 </Label>
                 <Input
                   id="summary"

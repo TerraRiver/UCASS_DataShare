@@ -18,7 +18,7 @@ const caseStudySchema = z.object({
   title: z.string().min(1, '标题不能为空'),
   author: z.string().min(1, '作者不能为空'),
   discipline: z.string().min(1, '请选择学科分类'),
-  summary: z.string().max(50, '简述不能超过50个字符').optional().or(z.literal('')),
+  summary: z.string().optional().or(z.literal('')),
   publication: z.string().min(1, '发表期刊/来源不能为空'),
   publicationYear: z.coerce.number().min(1900, '年份不正确').max(new Date().getFullYear(), '年份不正确'),
   publicationUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
@@ -68,18 +68,16 @@ export default function UploadCaseStudyPage() {
     let completedSteps = 0
     let totalSteps = 0
 
-    // Step 1: Basic Information (4 required fields)
-    totalSteps += 4
+    // Step 1: Basic Information (3 required fields)
+    totalSteps += 3
     if (formData?.title) completedSteps++
     if (formData?.author) completedSteps++
     if (formData?.discipline) completedSteps++
-    if (formData?.summary) completedSteps++
 
-    // Step 2: Publication Information (3 fields, 2 required)
-    totalSteps += 3
+    // Step 2: Publication Information (2 required fields)
+    totalSteps += 2
     if (formData?.publication) completedSteps++
     if (formData?.publicationYear) completedSteps++
-    if (formData?.publicationUrl) completedSteps++
 
     // Step 3: Files (required)
     totalSteps += 1
@@ -508,12 +506,11 @@ export default function UploadCaseStudyPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="summary" className="text-sm font-medium text-gray-700">
-                    简述 <span className="text-gray-400">(可选,最多50字符)</span>
+                    简述 <span className="text-gray-400">(可选)</span>
                   </Label>
                   <Input
                     id="summary"
                     {...register('summary')}
-                    maxLength={50}
                     className="transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="简要描述案例集内容"
                   />
