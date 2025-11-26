@@ -21,7 +21,7 @@ const caseStudyUploadSchema = z.object({
   summary: z.string().max(30).optional(),
   publication: z.string(),
   publicationYear: z.coerce.number(),
-  publicationUrl: z.string().url().optional(),
+  publicationUrl: z.union([z.literal(''), z.string().url()]).optional(),
 });
 
 // Upload a new case study

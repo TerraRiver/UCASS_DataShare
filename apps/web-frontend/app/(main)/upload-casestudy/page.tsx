@@ -21,7 +21,7 @@ const caseStudySchema = z.object({
   summary: z.string().optional().or(z.literal('')),
   publication: z.string().min(1, '发表期刊/来源不能为空'),
   publicationYear: z.coerce.number().min(1900, '年份不正确').max(new Date().getFullYear(), '年份不正确'),
-  publicationUrl: z.string().url('请输入有效的URL').optional().or(z.literal('')),
+  publicationUrl: z.union([z.literal(''), z.string().url('请输入有效的URL')]).optional(),
 })
 
 type CaseStudyFormData = z.infer<typeof caseStudySchema>
