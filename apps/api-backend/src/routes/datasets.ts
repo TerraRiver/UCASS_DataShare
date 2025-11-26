@@ -61,6 +61,21 @@ router.post('/upload', upload.array('files', 50), async (req, res) => {
       return res.status(400).json({ error: '请至少上传一个文件' });
     }
 
+    // 验证总文件大小（10GB限制）
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
+    if (totalSize > MAX_TOTAL_SIZE) {
+      // 删除已上传的文件
+      files.forEach(file => {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      });
+      return res.status(400).json({
+        error: `文件总大小超过限制！当前总大小: ${(totalSize / 1024 / 1024 / 1024).toFixed(2)}GB，最大允许: 10GB`
+      });
+    }
+
     // 修复 multer 导致的文件名中文乱码问题
     files.forEach(file => {
       file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -81,9 +96,6 @@ router.post('/upload', upload.array('files', 50), async (req, res) => {
         citationsArray = [];
       }
     }
-
-    // 计算总文件大小
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
     // 创建数据集记录
     const dataset = await prisma.dataset.create({
@@ -196,7 +208,7 @@ router.get('/public', async (req, res) => {
       const simplifiedDataset = {
         ...dataset,
         fileType: dataset.files[0]?.fileType || '',
-        fileSize: dataset.files[0]?.fileSize || 0,
+        fileSize: dataset.files[0]?.fileSize ? Number(dataset.files[0].fileSize) : 0,
       };
       delete (simplifiedDataset as any).files;
 
@@ -233,7 +245,16 @@ router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
       return res.status(403).json({ error: '数据集当前不可访问' });
     }
 
-    res.json({ dataset });
+    // 转换 BigInt 为 Number
+    const datasetWithConvertedFiles = {
+      ...dataset,
+      files: dataset.files.map(file => ({
+        ...file,
+        fileSize: Number(file.fileSize)
+      }))
+    };
+
+    res.json({ dataset: datasetWithConvertedFiles });
   } catch (error) {
     console.error('获取数据集详情错误:', error);
     res.status(500).json({ error: '服务器内部错误' });

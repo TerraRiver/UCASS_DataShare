@@ -115,12 +115,24 @@ export class EmbeddingService {
   }
 
   /**
-   * 读取 README.md 文件内容
+   * 读取 README.md 或任意 .md 文件内容
+   * 优先级：1. readme.md/README.md  2. 任意 .md 文件  3. 无
    */
   private async readReadmeContent(files: any[]): Promise<string> {
-    const readmeFile = files.find(
-      (f: any) => f.originalName.toLowerCase() === 'readme.md'
-    );
+    // 优先查找 readme.md（不区分大小写，支持路径）
+    let readmeFile = files.find((f: any) => {
+      const fileName = f.originalName.toLowerCase();
+      const baseName = fileName.split('/').pop()?.split('\\').pop() || '';
+      return baseName === 'readme.md';
+    });
+
+    // 如果没有找到 readme.md，查找任意 .md 文件
+    if (!readmeFile) {
+      readmeFile = files.find((f: any) => {
+        const ext = f.originalName.toLowerCase().split('.').pop();
+        return ext === 'md';
+      });
+    }
 
     if (!readmeFile) {
       return '';
@@ -129,7 +141,11 @@ export class EmbeddingService {
     try {
       const filePath = path.join(ENV.UPLOAD_DIR, readmeFile.filename);
       if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf-8');
+        let content = fs.readFileSync(filePath, 'utf-8');
+
+        // 移除 NULL 字节，PostgreSQL TEXT 类型不支持 NULL 字节
+        content = content.replace(/\0/g, '');
+
         // 限制长度，避免 token 过多
         return content.slice(0, 2000);
       }

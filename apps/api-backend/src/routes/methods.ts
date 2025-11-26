@@ -84,7 +84,16 @@ router.get('/modules', async (req, res) => {
       orderBy: { code: 'asc' },
     });
 
-    res.json(modules);
+    // 转换 BigInt 为 Number
+    const modulesWithConvertedFiles = modules.map(module => ({
+      ...module,
+      files: module.files.map(file => ({
+        ...file,
+        fileSize: Number(file.fileSize)
+      }))
+    }));
+
+    res.json(modulesWithConvertedFiles);
   } catch (error) {
     console.error('Failed to fetch modules:', error);
     res.status(500).json({ error: 'Failed to fetch modules' });
@@ -118,7 +127,16 @@ router.get('/modules/:id', async (req, res) => {
       data: { previewCount: { increment: 1 } },
     });
 
-    res.json(module);
+    // 转换 BigInt 为 Number
+    const moduleWithConvertedFiles = {
+      ...module,
+      files: module.files.map(file => ({
+        ...file,
+        fileSize: Number(file.fileSize)
+      }))
+    };
+
+    res.json(moduleWithConvertedFiles);
   } catch (error) {
     console.error('Failed to fetch module:', error);
     res.status(500).json({ error: 'Failed to fetch module' });

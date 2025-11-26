@@ -80,7 +80,7 @@ export default function AIChatAssistant() {
         content: msg.content
       }));
 
-      const response = await fetch('http://localhost:30002/api/rag/chat', {
+      const response = await fetch('/api/rag/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

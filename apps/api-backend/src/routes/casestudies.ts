@@ -143,8 +143,10 @@ router.use((error: any, req: any, res: any, next: any) => {
 // 获取已发布的案例集列表 (分页)
 router.get('/', async (req, res) => {
   try {
-    const { page = '1', limit = '10', search, discipline } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const { page = '1', limit = '10', search, discipline, all } = req.query;
+    const isAll = all === 'true'; // 判断是否获取全部
+    const skip = isAll ? undefined : (parseInt(page as string) - 1) * parseInt(limit as string);
+    const take = isAll ? undefined : parseInt(limit as string);
 
     const where: any = {
       isReviewed: true,
@@ -177,13 +179,15 @@ router.get('/', async (req, res) => {
           uploadTime: true,
           practiceUrl: true,
           enablePractice: true,
+          isFeatured: true,
+          hasVideo: true,
           _count: {
             select: { files: true },
           },
         },
         orderBy: { uploadTime: 'desc' },
         skip,
-        take: parseInt(limit as string),
+        take,
       }),
       prisma.caseStudy.count({ where }),
     ]);
@@ -193,8 +197,8 @@ router.get('/', async (req, res) => {
       pagination: {
         total,
         page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        totalPages: Math.ceil(total / parseInt(limit as string)),
+        limit: take || total,
+        totalPages: take ? Math.ceil(total / take) : 1,
       },
     });
   } catch (error) {
@@ -233,7 +237,16 @@ router.get('/:id', optionalAdmin, async (req: AuthenticatedRequest, res) => {
       return res.status(403).json({ error: '案例集当前不可访问' });
     }
 
-    res.json(caseStudy);
+    // 转换 BigInt 为 Number
+    const caseStudyWithConvertedFiles = {
+      ...caseStudy,
+      files: caseStudy.files.map(file => ({
+        ...file,
+        fileSize: Number(file.fileSize)
+      }))
+    };
+
+    res.json(caseStudyWithConvertedFiles);
   } catch (error) {
     console.error('获取案例集详情错误:', error);
     res.status(500).json({ error: '服务器内部错误' });

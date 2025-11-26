@@ -153,12 +153,32 @@ router.post('/settings/test-qwen-api-key', requireAdmin, async (req, res) => {
   } catch (error: any) {
     console.error('Qwen API key test failed:', error);
 
-    if (error.status === 401 || error.status === 403) {
-      res.json({ valid: false, message: 'API Key 无效或已过期' });
+    // 更详细的错误处理
+    if (error.status === 401) {
+      res.json({
+        valid: false,
+        message: 'API Key 无效：请检查密钥是否正确，或访问阿里云百炼控制台重新获取'
+      });
+    } else if (error.status === 403) {
+      res.json({
+        valid: false,
+        message: 'API Key 权限不足：请确认密钥有访问所选模型的权限'
+      });
     } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      res.json({ valid: false, message: '无法连接到阿里云百炼 API 服务' });
+      res.json({
+        valid: false,
+        message: '网络错误：无法连接到阿里云百炼 API 服务，请检查网络连接'
+      });
+    } else if (error.code === 'invalid_api_key') {
+      res.json({
+        valid: false,
+        message: 'API Key 格式错误：密钥应以 sk- 开头，请检查是否完整复制'
+      });
     } else {
-      res.json({ valid: false, message: '测试失败：' + (error.message || '未知错误') });
+      res.json({
+        valid: false,
+        message: `测试失败：${error.message || '未知错误，请联系管理员'}`
+      });
     }
   }
 });

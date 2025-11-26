@@ -77,14 +77,20 @@ export default function CaseStudyDetailPage({ params }: { params: { id: string }
       const data = await response.json();
       setCaseStudy(data);
 
-      // 自动加载 README.md（不区分大小写，支持多种变体）
-      const readmeFile = data.files?.find((file: CaseStudyFile) => {
+      // 查找 Markdown 文件用于渲染 README
+      // 优先级：1. readme.md/README.md  2. 任意 .md 文件  3. 无
+      let readmeFile = data.files?.find((file: CaseStudyFile) => {
         const fileName = file.originalName.toLowerCase();
-        return fileName === 'readme.md' ||
-               fileName === 'readme.txt' ||
-               fileName.endsWith('/readme.md') ||
-               fileName.endsWith('\\readme.md');
+        const baseName = fileName.split('/').pop()?.split('\\').pop() || '';
+        return baseName === 'readme.md';
       });
+
+      // 如果没有找到 readme.md，查找任意 .md 文件
+      if (!readmeFile) {
+        readmeFile = data.files?.find((file: CaseStudyFile) => {
+          return file.fileType.toLowerCase() === '.md';
+        });
+      }
 
       if (readmeFile) {
         fetchReadme(id, readmeFile.id);

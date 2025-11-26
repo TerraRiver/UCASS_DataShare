@@ -5,6 +5,12 @@ import { ENV } from './config/env';
 import { logger } from './middleware/logger';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
+// 全局修复 BigInt JSON 序列化问题
+// @ts-ignore
+BigInt.prototype.toJSON = function() {
+  return Number(this);
+};
+
 // 路由导入
 import authRoutes from './routes/auth';
 import datasetRoutes from './routes/datasets';

@@ -136,14 +136,20 @@ fetch('${window.location.origin}/api/datasets/${dataset.id}/download/FILE_ID')
           setSelectedPreviewFile(firstPreviewable);
         }
 
-        // 查找 README.md 文件（不区分大小写，支持多种变体）
-        const readmeFile = data.dataset.files?.find((file: DatasetFile) => {
+        // 查找 Markdown 文件用于渲染 README
+        // 优先级：1. readme.md/README.md  2. 任意 .md 文件  3. 无
+        let readmeFile = data.dataset.files?.find((file: DatasetFile) => {
           const fileName = file.originalName.toLowerCase();
-          return fileName === 'readme.md' ||
-                 fileName === 'readme.txt' ||
-                 fileName.endsWith('/readme.md') ||
-                 fileName.endsWith('\\readme.md');
+          const baseName = fileName.split('/').pop()?.split('\\').pop() || '';
+          return baseName === 'readme.md';
         });
+
+        // 如果没有找到 readme.md，查找任意 .md 文件
+        if (!readmeFile) {
+          readmeFile = data.dataset.files?.find((file: DatasetFile) => {
+            return file.fileType.toLowerCase() === '.md';
+          });
+        }
 
         if (readmeFile) {
           fetchReadme(id, readmeFile.id);

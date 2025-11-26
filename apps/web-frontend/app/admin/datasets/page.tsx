@@ -394,14 +394,14 @@ const DatasetManagementPage: FC = () => {
     switch (columnKey) {
       case "name":
         return (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 max-w-full">
             <Link
               href={`/datasets/${dataset.id}`}
               target="_blank"
-              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 line-clamp-2"
             >
-              {dataset.name}
-              <ExternalLinkIcon className="w-3 h-3" />
+              <span className="line-clamp-2">{dataset.name}</span>
+              <ExternalLinkIcon className="w-3 h-3 flex-shrink-0" />
             </Link>
             {dataset.summary && (
               <p className="text-xs text-gray-500 line-clamp-1">{dataset.summary}</p>
@@ -617,6 +617,14 @@ const DatasetManagementPage: FC = () => {
                     key={column.uid}
                     align={column.uid === "actions" ? "center" : "start"}
                     allowsSorting={column.uid === "uploadTime" || column.uid === "name"}
+                    className={
+                      column.uid === "name" ? "w-[30%]" :
+                      column.uid === "catalog" ? "w-[10%]" :
+                      column.uid === "status" ? "w-[8%]" :
+                      column.uid === "uploadTime" ? "w-[12%]" :
+                      column.uid === "stats" ? "w-[8%]" :
+                      column.uid === "actions" ? "w-[32%]" : ""
+                    }
                   >
                     {column.name}
                   </TableColumn>
@@ -630,7 +638,20 @@ const DatasetManagementPage: FC = () => {
               >
                 {(item) => (
                   <TableRow key={item.id}>
-                    {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
+                    {(columnKey) => (
+                      <TableCell
+                        className={
+                          columnKey === "name" ? "w-[30%]" :
+                          columnKey === "catalog" ? "w-[10%]" :
+                          columnKey === "status" ? "w-[8%]" :
+                          columnKey === "uploadTime" ? "w-[12%]" :
+                          columnKey === "stats" ? "w-[8%]" :
+                          columnKey === "actions" ? "w-[32%]" : ""
+                        }
+                      >
+                        {renderCell(item, columnKey)}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )}
               </TableBody>

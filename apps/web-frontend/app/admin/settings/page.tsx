@@ -61,14 +61,14 @@ export default function SettingsPage() {
       }
 
       // 获取 Embedding API Key
-      const embeddingRes = await fetch('http://localhost:30002/api/admin/settings/QWEN_EMBEDDING_API_KEY', {
+      const embeddingRes = await fetch('/api/admin/settings/QWEN_EMBEDDING_API_KEY', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
       // 获取 Chat API Key
-      const chatRes = await fetch('http://localhost:30002/api/admin/settings/QWEN_CHAT_API_KEY', {
+      const chatRes = await fetch('/api/admin/settings/QWEN_CHAT_API_KEY', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -142,7 +142,7 @@ export default function SettingsPage() {
         return;
       }
 
-      const response = await fetch(`http://localhost:30002/api/admin/settings/${settingKey}`, {
+      const response = await fetch(`/api/admin/settings/${settingKey}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -204,7 +204,7 @@ export default function SettingsPage() {
         return;
       }
 
-      const response = await fetch('http://localhost:30002/api/admin/settings/test-qwen-api-key', {
+      const response = await fetch('/api/admin/settings/test-qwen-api-key', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

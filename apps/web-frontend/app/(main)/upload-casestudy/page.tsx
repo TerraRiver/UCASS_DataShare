@@ -32,6 +32,8 @@ const disciplines = [
 ]
 
 const MAX_FILES = 50
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 单文件最大 5GB
+const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024 // 总大小最大 10GB
 
 interface ValidationError {
   path: (string | number)[]
@@ -160,10 +162,24 @@ export default function UploadCaseStudyPage() {
       return
     }
 
+    // 验证单个文件大小
+    const oversizedFiles = incomingFiles.filter(file => file.size > MAX_FILE_SIZE)
+    if (oversizedFiles.length > 0) {
+      alert(`以下文件超过单文件大小限制(5GB):\n${oversizedFiles.map(f => `${f.name} (${formatFileSize(f.size)})`).join('\n')}\n\n请移除超大文件后重试。`)
+      return
+    }
+
     const { nextFiles, duplicates, addedCount, truncatedCount, limitReached } = mergeFiles(
       selectedFiles,
       incomingFiles
     )
+
+    // 验证总文件大小
+    const totalSize = nextFiles.reduce((sum, file) => sum + file.size, 0)
+    if (totalSize > MAX_TOTAL_SIZE) {
+      alert(`所有文件总大小超过限制(10GB)！\n当前总大小: ${formatFileSize(totalSize)}\n请减少文件数量或文件大小后重试。`)
+      return
+    }
 
     if (duplicates.length > 0) {
       alert(`以下文件已存在/重复，将跳过:\n${duplicates.join('\n')}`)
@@ -856,9 +872,14 @@ export default function UploadCaseStudyPage() {
                   {selectedFiles.length > 0 && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          已选择文件 ({selectedFiles.length}/{MAX_FILES})
-                        </h4>
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900">
+                            已选择文件 ({selectedFiles.length}/{MAX_FILES})
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1">
+                            总大小: {formatFileSize(selectedFiles.reduce((sum, file) => sum + file.size, 0))} / 10GB
+                          </p>
+                        </div>
                         <Button
                           type="button"
                           variant="ghost"

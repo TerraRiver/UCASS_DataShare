@@ -32,7 +32,7 @@ export default function RAGManagementPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('http://localhost:30002/api/rag/stats', {
+      const response = await fetch('/api/rag/stats', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -67,10 +67,10 @@ export default function RAGManagementPage() {
     try {
       const token = localStorage.getItem('admin_token');
       const endpoint = type === 'datasets'
-        ? 'http://localhost:30002/api/rag/embed/all-datasets'
+        ? '/api/rag/embed/all-datasets'
         : type === 'casestudies'
-        ? 'http://localhost:30002/api/rag/embed/all-casestudies'
-        : 'http://localhost:30002/api/rag/embed/all-methodmodules';
+        ? '/api/rag/embed/all-casestudies'
+        : '/api/rag/embed/all-methodmodules';
 
       const response = await fetch(endpoint, {
         method: 'POST',
