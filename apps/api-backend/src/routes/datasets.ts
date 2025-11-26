@@ -41,7 +41,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: ENV.MAX_FILE_SIZE },
+  limits: {
+    fileSize: ENV.MAX_FILE_SIZE, // 单文件最大 5GB
+    files: 50, // 最多 50 个文件
+  },
 });
 
 // 上传数据集 (支持多文件)

@@ -18,13 +18,6 @@ const nextConfig = {
       bodySizeLimit: '5gb',
     },
   },
-  // API路由配置
-  api: {
-    bodyParser: {
-      sizeLimit: '5gb',
-    },
-    responseLimit: false,
-  },
 };
 
 module.exports = nextConfig; 

@@ -27,9 +27,10 @@ app.use(cors({
   credentials: true,
 }));
 
-// 解析请求体 - 增大限制以支持大文件上传的元数据
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+// 解析请求体 - 仅用于非文件上传的API路由
+// 注意：文件上传路由使用 multer，不受此限制影响
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 日志中间件
 app.use(logger);
