@@ -31,12 +31,23 @@ const disciplines = [
   '新闻传播', '计算科学', '数学', '其他'
 ]
 
-const MAX_FILES = 15
+const MAX_FILES = 50
+
+interface ValidationError {
+  path: (string | number)[]
+  message: string
+}
+
+interface UploadResult {
+  success: boolean
+  message: string
+  errors?: ValidationError[]
+}
 
 export default function UploadCaseStudyPage() {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [showResultDialog, setShowResultDialog] = useState(false)
@@ -285,6 +296,28 @@ export default function UploadCaseStudyPage() {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
   }
 
+  // 将字段名映射为中文
+  const fieldNameMap: Record<string, string> = {
+    title: '标题',
+    author: '论文源作者',
+    discipline: '学科分类',
+    summary: '简述',
+    publication: '发表期刊/来源',
+    publicationYear: '发表年份',
+    publicationUrl: '原文链接',
+  }
+
+  // 格式化验证错误为用户友好的消息
+  const formatValidationErrors = (errors: ValidationError[]): string => {
+    return errors
+      .map(error => {
+        const fieldName = error.path[0] as string
+        const displayName = fieldNameMap[fieldName] || fieldName
+        return `【${displayName}】${error.message}`
+      })
+      .join('\n')
+  }
+
   const getFileTypeStyle = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase()
     switch (ext) {
@@ -326,14 +359,32 @@ export default function UploadCaseStudyPage() {
       })
       const result = await response.json()
       if (response.ok) {
-        setUploadResult({ success: true, message: '案例集上传成功！您的案例集将在审核通过后对所有用户可见,通常在1-3个工作日内完成审核。' })
+        setUploadResult({
+          success: true,
+          message: '案例集上传成功！您的案例集将在审核通过后对所有用户可见,通常在1-3个工作日内完成审核。'
+        })
         reset()
         setSelectedFiles([])
       } else {
-        setUploadResult({ success: false, message: result.error || '上传失败,请重试' })
+        // 处理验证错误
+        if (result.details && Array.isArray(result.details)) {
+          setUploadResult({
+            success: false,
+            message: '表单填写有误,请检查以下字段:',
+            errors: result.details
+          })
+        } else {
+          setUploadResult({
+            success: false,
+            message: result.error || '上传失败,请重试'
+          })
+        }
       }
     } catch (error) {
-      setUploadResult({ success: false, message: '网络错误,请稍后再试' })
+      setUploadResult({
+        success: false,
+        message: '网络错误,请稍后再试'
+      })
     } finally {
       setUploading(false)
       setShowResultDialog(true)
@@ -860,11 +911,31 @@ export default function UploadCaseStudyPage() {
               </DialogHeader>
               <div className="py-4">
                 {uploadResult && (
-                  <Alert className={uploadResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
-                    <AlertDescription className={uploadResult.success ? 'text-green-800' : 'text-red-800'}>
-                      {uploadResult.message}
-                    </AlertDescription>
-                  </Alert>
+                  <>
+                    <Alert className={uploadResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                      <AlertDescription className={uploadResult.success ? 'text-green-800' : 'text-red-800'}>
+                        {uploadResult.message}
+                      </AlertDescription>
+                    </Alert>
+                    {/* 显示详细的字段错误列表 */}
+                    {uploadResult.errors && uploadResult.errors.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {uploadResult.errors.map((error, index) => {
+                          const fieldName = error.path[0] as string
+                          const displayName = fieldNameMap[fieldName] || fieldName
+                          return (
+                            <div key={index} className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <AlertCircleIcon className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 text-sm">
+                                <span className="font-medium text-red-900">{displayName}:</span>
+                                <span className="text-red-700 ml-1">{error.message}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <DialogFooter>

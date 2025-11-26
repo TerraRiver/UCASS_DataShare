@@ -5,11 +5,24 @@ import fs from 'fs';
 import archiver from 'archiver';
 import * as XLSX from 'xlsx';
 import pdf from 'pdf-parse';
+import { z } from 'zod';
 import { prisma } from '@/config/database';
 import { ENV } from '@/config/env';
 import { requireAdmin, optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 
 const router = Router();
+
+// Zod schema for dataset upload validation
+const datasetUploadSchema = z.object({
+  name: z.string({ required_error: '数据集名称不能为空' }).min(1, { message: '数据集名称不能为空' }),
+  catalog: z.string({ required_error: '请选择数据集分类' }).min(1, { message: '请选择数据集分类' }),
+  summary: z.string().optional(),
+  source: z.string({ required_error: '数据来源不能为空' }).min(1, { message: '数据来源不能为空' }),
+  sourceUrl: z.union([z.literal(''), z.string().url({ message: '请输入有效的URL地址' })]).optional(),
+  sourceDate: z.string().optional(),
+  recommendedCitations: z.string().optional(),
+  uploadedBy: z.string().optional(),
+});
 
 // 配置文件上传
 const storage = multer.diskStorage({
@@ -32,11 +45,17 @@ const upload = multer({
 });
 
 // 上传数据集 (支持多文件)
-router.post('/upload', upload.array('files', 15), async (req, res) => {
+router.post('/upload', upload.array('files', 50), async (req, res) => {
   try {
+    // 验证表单数据
+    const validation = datasetUploadSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: '表单数据无效', details: validation.error.errors });
+    }
+
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
-      return res.status(400).json({ error: '未上传文件' });
+      return res.status(400).json({ error: '请至少上传一个文件' });
     }
 
     // 修复 multer 导致的文件名中文乱码问题
@@ -44,16 +63,7 @@ router.post('/upload', upload.array('files', 15), async (req, res) => {
       file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     });
 
-    const { name, catalog, summary, source, sourceUrl, sourceDate, recommendedCitations } = req.body;
-
-    if (!name || !catalog || !source) {
-      return res.status(400).json({ error: '数据集名称、分类和来源不能为空' });
-    }
-
-    // 验证简述长度
-    if (summary && summary.length > 30) {
-      return res.status(400).json({ error: '数据集简述不能超过30个字符' });
-    }
+    const { name, catalog, summary, source, sourceUrl, sourceDate, recommendedCitations } = validation.data;
 
     // 解析推荐引用文献
     let citationsArray: string[] = [];

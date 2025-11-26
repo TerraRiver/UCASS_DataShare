@@ -15,17 +15,20 @@ const router = Router();
 
 // Zod schema for validation
 const caseStudyUploadSchema = z.object({
-  title: z.string(),
-  author: z.string(),
-  discipline: z.string(),
-  summary: z.string().max(30).optional(),
-  publication: z.string(),
-  publicationYear: z.coerce.number(),
-  publicationUrl: z.union([z.literal(''), z.string().url()]).optional(),
+  title: z.string({ required_error: '标题不能为空' }).min(1, { message: '标题不能为空' }),
+  author: z.string({ required_error: '作者不能为空' }).min(1, { message: '作者不能为空' }),
+  discipline: z.string({ required_error: '请选择学科分类' }).min(1, { message: '请选择学科分类' }),
+  summary: z.string().optional(),
+  publication: z.string({ required_error: '发表期刊/来源不能为空' }).min(1, { message: '发表期刊/来源不能为空' }),
+  publicationYear: z.coerce
+    .number({ invalid_type_error: '发表年份必须是数字' })
+    .min(1900, { message: '发表年份不能早于1900年' })
+    .max(new Date().getFullYear(), { message: `发表年份不能晚于${new Date().getFullYear()}年` }),
+  publicationUrl: z.union([z.literal(''), z.string().url({ message: '请输入有效的URL地址' })]).optional(),
 });
 
 // Upload a new case study
-router.post('/upload', upload.array('files', 15), async (req, res) => {
+router.post('/upload', upload.array('files', 50), async (req, res) => {
   try {
     const validation = caseStudyUploadSchema.safeParse(req.body);
     if (!validation.success) {
