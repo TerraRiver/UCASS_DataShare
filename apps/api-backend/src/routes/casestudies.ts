@@ -9,7 +9,14 @@ import { z } from 'zod';
 import { optionalAdmin, type AuthenticatedRequest } from '@/middleware/auth';
 
 // Multer setup for file uploads
-const upload = multer({ dest: ENV.UPLOAD_DIR });
+// 设置文件上传限制：单文件最大5GB，总大小最大10GB
+const upload = multer({
+  dest: ENV.UPLOAD_DIR,
+  limits: {
+    fileSize: 5 * 1024 * 1024 * 1024, // 单文件最大 5GB
+    files: 50, // 最多50个文件
+  }
+});
 
 const router = Router();
 
@@ -28,7 +35,7 @@ const caseStudyUploadSchema = z.object({
 });
 
 // Upload a new case study
-router.post('/upload', upload.array('files', 50), async (req, res) => {
+router.post('/upload', upload.array('files', 50), async (req, res, next) => {
   try {
     const validation = caseStudyUploadSchema.safeParse(req.body);
     if (!validation.success) {
@@ -38,6 +45,22 @@ router.post('/upload', upload.array('files', 50), async (req, res) => {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
       return res.status(400).json({ error: '至少需要上传一个文件' });
+    }
+
+    // 检查总文件大小是否超过10GB
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const maxTotalSize = 10 * 1024 * 1024 * 1024; // 10GB
+    if (totalSize > maxTotalSize) {
+      // 清理已上传的文件
+      files.forEach(file => {
+        fs.unlink(file.path, err => {
+          if (err) console.error(`清理文件失败: ${file.path}`, err);
+        });
+      });
+      return res.status(413).json({
+        error: '总文件大小超出限制',
+        message: `所有文件的总大小不能超过10GB，当前总大小为${(totalSize / (1024 * 1024 * 1024)).toFixed(2)}GB`
+      });
     }
 
     // 修复 multer 导致的文件名中文乱码问题
@@ -85,6 +108,35 @@ router.post('/upload', upload.array('files', 50), async (req, res) => {
     }
     res.status(500).json({ error: '服务器内部错误' });
   }
+});
+
+// Multer错误处理中间件
+router.use((error: any, req: any, res: any, next: any) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        error: '文件大小超出限制',
+        message: '单个文件大小不能超过5GB,请检查您上传的文件'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(413).json({
+        error: '文件数量超出限制',
+        message: '最多只能上传50个文件'
+      });
+    }
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        error: '意外的文件字段',
+        message: '上传的文件字段名不正确'
+      });
+    }
+    return res.status(400).json({
+      error: '文件上传错误',
+      message: error.message
+    });
+  }
+  next(error);
 });
 
 
