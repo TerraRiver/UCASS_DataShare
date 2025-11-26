@@ -789,7 +789,7 @@ export default function UploadPage() {
                 文件上传
               </CardTitle>
               <CardDescription className="text-gray-600 mt-2">
-                支持任意文件格式，单次最多上传{MAX_FILES}个文件（可直接选择文件夹），单文件最大 1GB
+                支持任意文件格式，单次最多上传{MAX_FILES}个文件（可直接选择文件夹），单文件最大 5GB
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
@@ -910,7 +910,7 @@ export default function UploadPage() {
                         <span>•</span>
                         <span>最多{MAX_FILES}个文件</span>
                         <span>•</span>
-                        <span>单文件最大1GB</span>
+                        <span>单文件最大5GB</span>
                       </div>
                     </div>
                   </div>
