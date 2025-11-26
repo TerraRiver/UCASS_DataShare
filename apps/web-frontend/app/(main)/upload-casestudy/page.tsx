@@ -51,6 +51,7 @@ export default function UploadCaseStudyPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [showResultDialog, setShowResultDialog] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -338,12 +339,16 @@ export default function UploadCaseStudyPage() {
 
   const onSubmit = async (data: CaseStudyFormData) => {
     if (selectedFiles.length === 0) {
-      setUploadResult({ success: false, message: '请至少上传一个文件' })
+      setUploadResult({
+        success: false,
+        message: '请至少上传一个文件'
+      })
       setShowResultDialog(true)
       return
     }
 
     setUploading(true)
+    setUploadProgress(0)
     const formData = new FormData()
     Object.entries(data).forEach(([key, value]) => {
       formData.append(key, String(value))
@@ -353,40 +358,87 @@ export default function UploadCaseStudyPage() {
     })
 
     try {
-      const response = await fetch('/api/casestudies/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      const result = await response.json()
-      if (response.ok) {
-        setUploadResult({
-          success: true,
-          message: '案例集上传成功！您的案例集将在审核通过后对所有用户可见,通常在1-3个工作日内完成审核。'
+      // 使用 XMLHttpRequest 以支持上传进度
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        // 上传进度
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100)
+            setUploadProgress(percentComplete)
+          }
         })
-        reset()
-        setSelectedFiles([])
-      } else {
-        // 处理验证错误
-        if (result.details && Array.isArray(result.details)) {
-          setUploadResult({
-            success: false,
-            message: '表单填写有误,请检查以下字段:',
-            errors: result.details
-          })
-        } else {
-          setUploadResult({
-            success: false,
-            message: result.error || '上传失败,请重试'
-          })
-        }
-      }
-    } catch (error) {
-      setUploadResult({
-        success: false,
-        message: '网络错误,请稍后再试'
+
+        // 上传完成
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText)
+              resolve(response)
+            } catch (e) {
+              reject(new Error('解析响应失败'))
+            }
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText)
+              reject(error)
+            } catch (e) {
+              reject(new Error(`上传失败: ${xhr.statusText}`))
+            }
+          }
+        })
+
+        // 上传错误
+        xhr.addEventListener('error', () => {
+          reject(new Error('网络连接失败,请检查网络后重试'))
+        })
+
+        // 上传超时
+        xhr.addEventListener('timeout', () => {
+          reject(new Error('上传超时,文件可能过大,请尝试分批上传'))
+        })
+
+        // 设置超时时间为30分钟
+        xhr.timeout = 1800000
+
+        xhr.open('POST', '/api/casestudies/upload')
+        xhr.send(formData)
       })
+
+      setUploadResult({
+        success: true,
+        message: '案例集上传成功！您的案例集将在审核通过后对所有用户可见,通常在1-3个工作日内完成审核。'
+      })
+      reset()
+      setSelectedFiles([])
+    } catch (error: any) {
+      // 处理验证错误
+      if (error.details && Array.isArray(error.details)) {
+        setUploadResult({
+          success: false,
+          message: '表单填写有误,请检查以下字段:',
+          errors: error.details
+        })
+      } else if (error.error) {
+        setUploadResult({
+          success: false,
+          message: error.error
+        })
+      } else if (error instanceof Error) {
+        setUploadResult({
+          success: false,
+          message: error.message
+        })
+      } else {
+        setUploadResult({
+          success: false,
+          message: '上传失败,请重试'
+        })
+      }
     } finally {
       setUploading(false)
+      setUploadProgress(0)
       setShowResultDialog(true)
     }
   }
@@ -853,7 +905,7 @@ export default function UploadCaseStudyPage() {
             <Card className="border-2 border-red-100 rounded-lg overflow-hidden bg-gradient-to-r from-red-50 to-pink-50">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-center sm:text-left">
+                  <div className="text-center sm:text-left flex-1">
                     <h3
                       className="text-lg font-medium text-gray-900"
                       style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
@@ -863,12 +915,28 @@ export default function UploadCaseStudyPage() {
                     <p className="text-sm text-gray-600 mt-1">
                       提交后,您的案例集将进入审核流程,通常在1-3个工作日内完成审核
                     </p>
+                    {/* 上传进度条 */}
+                    {uploading && uploadProgress > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                          <span>上传进度</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex space-x-3">
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => window.history.back()}
+                      disabled={uploading}
                       className="border-2 border-gray-300 hover:bg-gray-100"
                     >
                       取消

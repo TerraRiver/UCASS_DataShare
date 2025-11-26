@@ -58,6 +58,7 @@ export default function UploadPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [showResultDialog, setShowResultDialog] = useState(false)
   const [citations, setCitations] = useState<string[]>([''])
+  const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -371,6 +372,7 @@ export default function UploadPage() {
 
     setUploading(true)
     setUploadResult(null)
+    setUploadProgress(0)
 
     try {
       const submitData = new FormData()
@@ -398,43 +400,88 @@ export default function UploadPage() {
         submitData.append('files', file)
       })
 
-      const response = await fetch('/api/datasets/upload', {
-        method: 'POST',
-        body: submitData,
-      })
+      // 使用 XMLHttpRequest 以支持上传进度
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
 
-      const result = await response.json()
-
-      if (response.ok) {
-        setUploadResult({
-          success: true,
-          message: result.message
+        // 上传进度
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100)
+            setUploadProgress(percentComplete)
+          }
         })
-        reset()
-        setSelectedFiles([]) // 清空文件列表
-        setCitations(['']) // 重置引用文献
-      } else {
-        // 处理验证错误
-        if (result.details && Array.isArray(result.details)) {
-          setUploadResult({
-            success: false,
-            message: '表单填写有误,请检查以下字段:',
-            errors: result.details
-          })
-        } else {
-          setUploadResult({
-            success: false,
-            message: result.error || '上传失败'
-          })
-        }
-      }
-    } catch (error) {
-      setUploadResult({
-        success: false,
-        message: '网络错误,请稍后再试'
+
+        // 上传完成
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText)
+              resolve(response)
+            } catch (e) {
+              reject(new Error('解析响应失败'))
+            }
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText)
+              reject(error)
+            } catch (e) {
+              reject(new Error(`上传失败: ${xhr.statusText}`))
+            }
+          }
+        })
+
+        // 上传错误
+        xhr.addEventListener('error', () => {
+          reject(new Error('网络连接失败,请检查网络后重试'))
+        })
+
+        // 上传超时
+        xhr.addEventListener('timeout', () => {
+          reject(new Error('上传超时,文件可能过大,请尝试分批上传'))
+        })
+
+        // 设置超时时间为30分钟
+        xhr.timeout = 1800000
+
+        xhr.open('POST', '/api/datasets/upload')
+        xhr.send(submitData)
       })
+
+      setUploadResult({
+        success: true,
+        message: result.message
+      })
+      reset()
+      setSelectedFiles([])
+      setCitations([''])
+    } catch (error: any) {
+      // 处理验证错误
+      if (error.details && Array.isArray(error.details)) {
+        setUploadResult({
+          success: false,
+          message: '表单填写有误,请检查以下字段:',
+          errors: error.details
+        })
+      } else if (error.error) {
+        setUploadResult({
+          success: false,
+          message: error.error
+        })
+      } else if (error instanceof Error) {
+        setUploadResult({
+          success: false,
+          message: error.message
+        })
+      } else {
+        setUploadResult({
+          success: false,
+          message: '上传失败,请重试'
+        })
+      }
     } finally {
       setUploading(false)
+      setUploadProgress(0)
       setShowResultDialog(true)
     }
   }
@@ -924,7 +971,7 @@ export default function UploadPage() {
           <Card className="border-2 border-red-100 rounded-lg overflow-hidden bg-gradient-to-r from-red-50 to-pink-50">
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-center sm:text-left">
+                <div className="text-center sm:text-left flex-1">
                   <h3
                     className="text-lg font-medium text-gray-900"
                     style={{ fontFamily: "var(--font-noto-serif-sc, 'Noto Serif SC', Georgia, serif)" }}
@@ -934,12 +981,28 @@ export default function UploadPage() {
                   <p className="text-sm text-gray-600 mt-1">
                     提交后,您的数据集将进入审核流程,通常在1-3个工作日内完成审核
                   </p>
+                  {/* 上传进度条 */}
+                  {uploading && uploadProgress > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                        <span>上传进度</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex space-x-3">
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => window.history.back()}
+                    disabled={uploading}
                     className="border-2 border-gray-300 hover:bg-gray-100"
                   >
                     取消

@@ -27,9 +27,9 @@ app.use(cors({
   credentials: true,
 }));
 
-// 解析请求体
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// 解析请求体 - 增大限制以支持大文件上传的元数据
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // 日志中间件
 app.use(logger);
@@ -80,11 +80,16 @@ app.use(errorHandler);
 // 启动服务器
 const PORT = ENV.PORT;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 UCASS DataShare API 服务已启动`);
   console.log(`📍 服务地址: http://localhost:${PORT}`);
   console.log(`🌍 环境: ${ENV.NODE_ENV}`);
   console.log(`📊 健康检查: http://localhost:${PORT}/health`);
 });
+
+// 设置请求超时时间为30分钟（支持大文件上传）
+server.timeout = 1800000; // 30分钟
+server.keepAliveTimeout = 1800000;
+server.headersTimeout = 1800000;
 
 export default app; 
